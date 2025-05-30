@@ -126,9 +126,6 @@ CREATE TABLE daily_cuisine_summary (
   ```bash
   docker-compose up -d zookeeper kafka cassandra log-ingest
   ```
-
-````
-
 - Kafka トピック作成：
   ```bash
   make create-topics
@@ -150,4 +147,3 @@ CREATE TABLE daily_cuisine_summary (
       --topic order-logs --from-beginning --max-messages 10
   ```
 - Web UI への反映: Summary Service 経由で取得し、グラフ表示を確認
-````
