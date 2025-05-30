@@ -84,7 +84,34 @@ CREATE TABLE freq_segments (
 2. **Summary Service の API 実装**：各セグメント用エンドポイントを追加
 3. **Web UI テンプレート作成**：Chart.js で 2 つの円グラフを描画
 4. **Kubernetes マニフェスト作成**：Deployment, Service, CronJob, Ingress などを整理
-5. **動作確認**：curl/postman でログ投入 →UI 表示まで一連フローを検証
+5. **動作確認**
+   - コンテナ起動 (Zookeeper/Kafka/Cassandra/Log-Ingest):
+     ```bash
+     docker-compose up -d zookeeper kafka cassandra log-ingest
+     ```
+   - Kafka トピック作成：
+     ```bash
+     docker-compose exec kafka \
+       kafka-topics --create --bootstrap-server kafka:9092 \
+         --topic visit-logs --replication-factor 1 --partitions 1
+     ```
+   - Log-Ingest 起動ログ確認：
+     ```bash
+     docker-compose logs -f log-ingest
+     ```
+   - ログ投入テスト：
+     ```bash
+     curl -X POST http://localhost:8080/api/log \
+       -H 'Content-Type: application/json' \
+       -d '{"user_id":"u1","timestamp":"2025-05-30T12:00:00Z","menu_type":"washoku"}'
+     ```
+   - Kafka に書き込まれたことを確認：
+     ```bash
+     docker-compose exec kafka \
+       kafka-console-consumer --bootstrap-server kafka:9092 \
+         --topic visit-logs --from-beginning --max-messages 1
+     ```
+   - Web UI への反映: Summary Service 経由で取得し、グラフ表示を確認
 
 ---
 
