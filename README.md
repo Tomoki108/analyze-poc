@@ -4,6 +4,12 @@
 
 LINE ミニアプリから送信される注文ログをもとに、ユーザーセグメントを抽出・可視化する POC を週末 2 日間で構築。
 
+### 習得したいスタック
+
+- kafka による非同期処理
+- cassandra によるデータ管理
+- python によるバッチ集計処理
+
 ## ユースケース
 
 - 注文ログをもとに、各ユーザーの嗜好（和食派/洋食派）をリアルタイム更新。それぞれに該当するユーザー ID をリスト表示できる。
@@ -42,7 +48,7 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
     • GET /api/summaries
     {
         summaries: [
-            { date: "2025-05-30", segment: "washoku", total_count: 456 },
+            { date: "2025-05-30", segments: "washoku", total_count: 456 },
             { date: "2025-05-30", segment: "yoshoku", total_count: 321 }
         ]
     }
