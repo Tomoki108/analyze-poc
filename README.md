@@ -147,7 +147,7 @@ CREATE TABLE daily_cuisine_summary (
   ```bash
   docker-compose exec kafka \
     kafka-console-consumer --bootstrap-server kafka:9092 \
-      --topic order-logs --from-beginning --max-messages 1
+      --topic order-logs --from-beginning --max-messages 10
   ```
 - Web UI への反映: Summary Service 経由で取得し、グラフ表示を確認
 ````

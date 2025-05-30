@@ -14,6 +14,9 @@ describe-topics:
 rebuild-log-ingest:
 	@docker-compose up -d --build log-ingest
 
+restart-log-ingest:
+	@docker-compose restart log-ingest
+
 rebuild-cassandra:
 	@docker-compose up -d --build cassandra
 
