@@ -2,117 +2,130 @@
 
 ## 目的
 
-LINE ミニアプリから送信される来店／注文ログをもとに、2 つのユーザーセグメントを抽出・可視化する POC を週末 2 日間で構築します。具体的には：
-
-- **和食好みセグメント** と **洋食好みセグメント** を抽出し、円グラフで割合を表示
-- **来店頻度セグメント**（月 1 回未満 / 月 1 ～ 3 回 / 週 1 回以上）を抽出し、円グラフで割合を表示
+LINE ミニアプリから送信される注文ログをもとに、ユーザーセグメントを抽出・可視化する POC を週末 2 日間で構築。
 
 ## ユースケース
 
-1. **和食／洋食嗜好の把握**
+- 注文ログをもとに、各ユーザーの嗜好（和食派/洋食派）をリアルタイム更新。それぞれに該当するユーザー ID をリスト表示できる。
+- 和食の注文数、洋食の注文数について、日毎のデータを翌日に集計。
+- 和食の注文数、洋食の注文数について、通算の割合を常に集計。
 
-   - 一定期間内の注文データを集計し、和食メニューを主に注文するユーザー数と洋食メニューを主に注文するユーザー数を算出。
-   - ダッシュボード上の円グラフで、各セグメントの割合を直感的に把握。
+### 活用方法
 
-2. **来店頻度の分類**
-
-   - 一定期間内の来店回数に基づき、ユーザーを 3 つの頻度セグメントに分類：
-
-     - 月 1 回未満（0 ～ 1 回）
-     - 月 1 ～ 3 回（2 ～ 3 回）
-     - 週 1 回以上（4 回以上）
-
-   - ダッシュボード上の円グラフで、各頻度セグメントの割合を可視化。
-
-3. **セグメント重ね合わせ配信**（発展）
-
-   - 例えば「月 1 ～ 3 回来店」かつ「和食好み」のユーザーを特定し、LINE 配信 API へ連携。
-   - ユーザー属性テーブルを用意し、複数条件を AND で絞り込み、配信対象を生成。
+- 洋食と和食のどちらが好まれているのか、そのトレンドを把握する
+- ユーザーの嗜好に基づいたマーケティング施策の検討(嗜好に応じた適切なクーポンの配布)
 
 ## アーキテクチャ概要
 
 ```text
-[ミニアプリ]
+[ミニアプリ（ログ送信テストスクリプト）]
     ↓ POST /api/log { user_id, timestamp, menu_type }
+
 [Log-Ingest Service]
-    ↓ Kafka “visit-logs” トピックへプロデュース
+    ↓ Kafka “order-logs” トピックへプロデュース
+
 [Log-Consumer Service]
-    ↓ Cassandra raw_visits テーブル に書き込み
+    ↓ Cassandra raw_orders に書き込み、user_cuisine_counts、cuisine_segment_counts をインクリメント
 
 [バッチ集計 (CronJob)]
-    ↓ raw_visits を集計
-    • cuisine_segments テーブル (washoku/yoshoku のカウント)
-    • freq_segments テーブル (月1未満/月1～3/週1以上 のカウント)
+    ↓ 前日のraw_orders を集計
+    • daily_cuisine_summary に書き込み
 
 [Summary Service]
-    • GET /api/segments/cuisine → { washoku: 123, yoshoku: 87 }
-    • GET /api/segments/frequency → { monthly0: 45, monthly1: 80, weekly1: 85 }
-
-[Web UI (静的HTML + Chart.js)]
-    • /cuisine.html：和食／洋食円グラフ
-    • /frequency.html：来店頻度円グラフ
+    • GET /api/segments
+    {
+        cuisines: [
+            { segment: "washoku", count: 123, users: [u1, u2, ...] },
+            { segment: "yoshoku", count: 87, users: [u3, u4, ...] }
+        ]
+    }
+    • GET /api/summaries
+    {
+        summaries: [
+            { date: "2025-05-30", segment: "washoku", total_count: 456 },
+            { date: "2025-05-30", segment: "yoshoku", total_count: 321 }
+        ]
+    }
+[Web UI (Vue.js or 静的HTML + Chart.js)]
+    • /cuisine.html：和食／洋食注文円グラフ（トータル/日毎）。各セグメントに該当するユーザー ID リストも表示
 ```
 
 ## データモデル例 (Cassandra)
 
 ```cql
-CREATE TABLE raw_visits (
-  user_id    text,
-  ts         timestamp,
-  menu_type  text,
+-- 生ログ保存テーブル
+CREATE TABLE raw_orders (
+  user_id   text,
+  ts        timestamp,
+  menu_type text,
   PRIMARY KEY (user_id, ts)
+) WITH CLUSTERING ORDER BY (ts DESC);
+
+-- ユーザー別カウンタ（嗜好変化をインクリメンタルに保持）
+CREATE TABLE user_cuisine_counts (
+  user_id      text PRIMARY KEY,
+  washoku_cnt  counter,
+  yoshoku_cnt  counter
 );
 
-CREATE TABLE cuisine_segments (
-  period     text,
-  segment    text,
-  count      int,
-  PRIMARY KEY (period, segment)
+-- セグメント全体カウンタ（現在の「和食派／洋食派」人数を即時取得）
+CREATE TABLE cuisine_segment_counts (
+  segment text PRIMARY KEY,   -- 'washoku' or 'yoshoku'
+  cnt     counter
 );
 
-CREATE TABLE freq_segments (
-  period     text,
-  segment    text,
-  count      int,
-  PRIMARY KEY (period, segment)
+-- 日次サマリテーブル（各日付ごとの和食／洋食注文件数を集計）
+CREATE TABLE daily_cuisine_summary (
+  order_date  date,
+  segment     text,   -- 'washoku' or 'yoshoku'
+  cnt       int,
+  PRIMARY KEY (order_date, segment)
 );
 ```
 
-## 開発手順（次のアクション）
+## 開発手順
 
-1. **CronJob バッチ雛形の実装**：raw_visits から cuisine_segments, freq_segments へアップサートするスクリプトを作成
-2. **Summary Service の API 実装**：各セグメント用エンドポイントを追加
-3. **Web UI テンプレート作成**：Chart.js で 2 つの円グラフを描画
-4. **Kubernetes マニフェスト作成**：Deployment, Service, CronJob, Ingress などを整理
-5. **動作確認**
-   - コンテナ起動 (Zookeeper/Kafka/Cassandra/Log-Ingest):
-     ```bash
-     docker-compose up -d zookeeper kafka cassandra log-ingest
-     ```
-   - Kafka トピック作成：
-     ```bash
-     docker-compose exec kafka \
-       kafka-topics --create --bootstrap-server kafka:9092 \
-         --topic visit-logs --replication-factor 1 --partitions 1
-     ```
-   - Log-Ingest 起動ログ確認：
-     ```bash
-     docker-compose logs -f log-ingest
-     ```
-   - ログ投入テスト：
-     ```bash
-     curl -X POST http://localhost:8080/api/log \
-       -H 'Content-Type: application/json' \
-       -d '{"user_id":"u1","timestamp":"2025-05-30T12:00:00Z","menu_type":"washoku"}'
-     ```
-   - Kafka に書き込まれたことを確認：
-     ```bash
-     docker-compose exec kafka \
-       kafka-console-consumer --bootstrap-server kafka:9092 \
-         --topic visit-logs --from-beginning --max-messages 1
-     ```
-   - Web UI への反映: Summary Service 経由で取得し、グラフ表示を確認
+- Cassandra のスキーマを作成し、テーブルを準備
+- Cassandra、Kafka、Zookeeper、Log-Ingest Service のコンテナを定義
+- **Log-Ingest Service （Go, Echo）** を実装
+  - ログの送信を受け付け、Kafka トピックへログを送信（プロデュース）する
+- **Log-Consumer Service （Go, Echo）** を実装
+  - Kafka トピックからログを消費し、Cassandra の raw_orders に書き込み、user_cuisine_counts、cuisine_segment_counts をインクリメントする
+- **Log-Aggregator Service を実装（Python）**
+  - 前日のログを集計し、daily_cuisine_summary テーブルを更新する。
+- **Summary-API Service （Go, Echo）** を実装
+  - 和食派／洋食派のユーザー ID リストを取得する API を実装
+  - トータルの和食派／洋食派の人数を取得する API を実装
+  - 日毎の和食／洋食注文数を取得する API を実装
+- **Summary-Web Service (Vue.js or 静的 HTML + Chart.js)** を実装
+  - 和食派／洋食派のユーザー ID リストを表示
+  - トータルの和食注文数／洋食注文数を円グラフで表示
+  - 日毎の和食注文数／洋食注文数を円グラフで表示
 
----
+## 動作確認
 
-週末 POC としてシンプルかつ動作確認が速い構成です。上記をもとに 1 つずつ実装し、README に進捗をコミットしてください。
+- コンテナ起動 (Zookeeper/Kafka/Cassandra/Log-Ingest):
+  ```bash
+  docker-compose up -d zookeeper kafka cassandra log-ingest
+  ```
+- Kafka トピック作成：
+  ```bash
+  make create-topics
+  ```
+- Log-Ingest 起動ログ確認：
+  ```bash
+  docker-compose logs -f log-ingest
+  ```
+- ログ投入テスト：
+  ```bash
+  curl -X POST http://localhost:8080/api/log \
+    -H 'Content-Type: application/json' \
+    -d '{"user_id":"u1","timestamp":"2025-05-30T12:00:00Z","menu_type":"washoku"}'
+  ```
+- Kafka に書き込まれたことを確認：
+  ```bash
+  docker-compose exec kafka \
+    kafka-console-consumer --bootstrap-server kafka:9092 \
+      --topic order-logs --from-beginning --max-messages 1
+  ```
+- Web UI への反映: Summary Service 経由で取得し、グラフ表示を確認
