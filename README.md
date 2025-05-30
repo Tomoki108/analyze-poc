@@ -56,7 +56,18 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
     • /cuisine.html：和食／洋食注文円グラフ（トータル/日毎）。各セグメントに該当するユーザー ID リストも表示
 ```
 
-## データモデル例 (Cassandra)
+### [More] スケーリングリスク
+
+- Cassandra のカウンタは分散カウンタとして実装されているものの、同一パーティション（user_id や segment）への高頻度アクセスが集中するとホットパーティションが発生し、書き込みスループット低下やタイムアウトの原因となる可能性がある
+- カウンタは最終的整合性 (eventual consistency) モデルを採用しており、短時間での読み取り時に一時的に不整合な値が返る場合がある。
+
+本番環境で高負荷を想定する場合は、以下のようなストリーム処理エンジンの導入を検討。
+
+- Kafka Streams / ksqlDB
+- Apache Flink など
+- カウンタパーティションを分散化するパーティションキー設計の見直し
+
+## データモデル (Cassandra)
 
 ```cql
 -- 生ログ保存テーブル
@@ -107,6 +118,7 @@ CREATE TABLE daily_cuisine_summary (
   - 和食派／洋食派のユーザー ID リストを表示
   - トータルの和食注文数／洋食注文数を円グラフで表示
   - 日毎の和食注文数／洋食注文数を円グラフで表示
+- 実際のログストリームを再現するテストスクリプトを作成
 
 ## 動作確認
 
@@ -114,6 +126,9 @@ CREATE TABLE daily_cuisine_summary (
   ```bash
   docker-compose up -d zookeeper kafka cassandra log-ingest
   ```
+
+````
+
 - Kafka トピック作成：
   ```bash
   make create-topics
@@ -135,3 +150,4 @@ CREATE TABLE daily_cuisine_summary (
       --topic order-logs --from-beginning --max-messages 1
   ```
 - Web UI への反映: Summary Service 経由で取得し、グラフ表示を確認
+````
