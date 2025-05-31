@@ -31,9 +31,11 @@ CREATE TABLE IF NOT EXISTS daily_order_summaries (
   PRIMARY KEY (order_date, menu_type)
 );
 
+
 -- ユーザー別注文カウンタ
+-- NOTE: Cassandraの制約でcounter型のカラムとそれ以外のカラムを同時に含められないので、menu_type, cntという構成にはしない
 CREATE TABLE IF NOT EXISTS user_order_counts (
   user_id    text PRIMARY KEY,
-  menu_type  text,  -- 'washoku' or 'yoshoku'
-  cnt        counter
+  washoku_cnt counter,
+  yoshoku_cnt counter
 );
