@@ -1,9 +1,11 @@
 .PHONY: create-topics describe-topics
 
+# 全コンテナを削除、再作成して起動
 du-containers:
-	@docker compose down && docker compose up -d
+	@docker compose down --remove-orphans && docker compose up -d
 
-rbu-containers:
+# 全コンテナを削除、イメージを再ビルド、コンテナを再作成して起動
+dbu-containers:
 	@docker compose down --remove-orphans && docker compose up -d --build
 
 #########
