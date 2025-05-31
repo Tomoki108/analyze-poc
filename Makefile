@@ -81,3 +81,8 @@ clean-db:
 	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.cuisine_segment_counts;"
 	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.daily_cuisine_summary;"
 	@echo "Database cleaned successfully"
+
+drop-db:
+	@echo "Dropping Cassandra keyspace..."
+	@docker compose exec cassandra cqlsh -e "DROP KEYSPACE IF EXISTS analyze_poc;"
+	@echo "Keyspace dropped successfully"
