@@ -24,22 +24,22 @@ def get_cassandra_session():
     return cluster.connect(KEYSPACE)
 
 def update_daily_summaries(session, date):
-    # 指定日付の全注文を取得（PRIMARY KEYでフィルタリング）
+    # 指定日付の全注文を取得（ALLOW FILTERINGを一時的に使用）
     rows = session.execute(
         "SELECT menu_type FROM raw_orders "
-        "WHERE user_id = '*' AND order_date = %s",
+        "WHERE order_date = %s",
         [date]
     )
     
     # アプリケーション側で集計
     washoku_count = 0
     yoshoku_count = 0
-    for row in rows:
+    for i, row in enumerate(rows):
         if row.menu_type == 'washoku':
             washoku_count += 1
         elif row.menu_type == 'yoshoku':
             yoshoku_count += 1
-    
+        
     # daily_order_summariesに挿入/更新
     session.execute(
         "INSERT INTO daily_order_summaries (order_date, menu_type, cnt) "
