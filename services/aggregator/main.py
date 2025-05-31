@@ -10,6 +10,36 @@ CASSANDRA_USER = os.getenv('CASSANDRA_USER', 'cassandra')
 CASSANDRA_PASS = os.getenv('CASSANDRA_PASS', 'cassandra')
 KEYSPACE = 'analyze_poc'
 
+if __name__ == '__main__':
+    import sys
+    date_arg = sys.argv[1] if len(sys.argv) > 1 else None
+    aggregate_orders(date_arg)
+
+# Entry point for the aggregation service
+def aggregate_orders(date_str=None):
+    session = get_cassandra_session()
+    
+    # 日付が指定されていない場合は前日の日付を使う
+    if date_str is None:
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        date_str = yesterday.strftime('%Y-%m-%d')
+    else:
+        # 日付フォーマットを検証
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            print("Error: Invalid date format. Please use YYYY-MM-DD")
+            return
+    
+    # 日次サマリ更新
+    update_daily_summaries(session, date)
+    
+    # ユーザー嗜好更新
+    update_user_preferences(session)
+    
+    print(f"Aggregated data for {date_str}")
+
+# Cassandraセッションを取得するヘルパー関数
 def get_cassandra_session():
     auth_provider = PlainTextAuthProvider(
         username=CASSANDRA_USER,
@@ -22,59 +52,70 @@ def get_cassandra_session():
     )
     return cluster.connect(KEYSPACE)
 
-def aggregate_orders(date_str=None):
-    session = get_cassandra_session()
+# 日次サマリを更新する関数
+def update_daily_summaries(session, date):
+    # 日付指定でraw_ordersから集計
+    rows = session.execute(
+        "SELECT order_date, menu_type, COUNT(*) as cnt "
+        "FROM raw_orders WHERE order_date = %s "
+        "GROUP BY order_date, menu_type",
+        [date]
+    )
     
-    # 日付が指定されていない場合は前日の日付を使う
-    if date_str is None:
-        yesterday = datetime.utcnow() - timedelta(days=1)
-        date_str = yesterday.strftime('%Y-%m-%d')
-    else:
-        # 日付フォーマットを検証
-        try:
-            datetime.strptime(date_str, '%Y-%m-%d')
-        except ValueError:
-            print("Error: Invalid date format. Please use YYYY-MM-DD")
-            return
-    
-    # 指定日付の注文データを取得（ページネーションでメモリ効率化）
-    query = """
-        SELECT menu_type
-        FROM raw_orders
-        WHERE order_date = ?
-    """
-    # datetimeオブジェクトに変換
-    start_date = datetime.strptime(date_str, '%Y-%m-%d')
-    end_date = datetime.strptime(date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-    
-    # アプリケーション側で集計
-    washoku_count = 0
-    yoshoku_count = 0
-    
-    # ページネーションでデータ取得
-    page_size = 1000
-    stmt = session.prepare(query)
-    stmt.fetch_size = page_size
-    
-    rows = session.execute(stmt, [start_date.date()])
+    # daily_order_summariesに挿入/更新
     for row in rows:
-        if row.menu_type == 'washoku':
-            washoku_count += 1
-        elif row.menu_type == 'yoshoku':
-            yoshoku_count += 1
-    
-    # 集計結果をdaily_cuisine_summaryに保存
-    insert_query = """
-        INSERT INTO daily_cuisine_summary (order_date, segment, cnt)
-        VALUES (%s, %s, %s)
-    """
-    
-    session.execute(insert_query, [date_str, 'washoku', washoku_count])
-    session.execute(insert_query, [date_str, 'yoshoku', yoshoku_count])
-    
-    print(f"Aggregated data for {date_str}: washoku={washoku_count}, yoshoku={yoshoku_count}")
+        session.execute(
+            "INSERT INTO daily_order_summaries (order_date, menu_type, cnt) "
+            "VALUES (%s, %s, %s)",
+            [row.order_date, row.menu_type, row.cnt]
+        )
 
-if __name__ == '__main__':
-    import sys
-    date_arg = sys.argv[1] if len(sys.argv) > 1 else None
-    aggregate_orders(date_arg)
+# ユーザー嗜好を更新する関数
+def update_user_preferences(session):
+    # ユーザーごとの注文件数を取得
+    user_counts = {}
+    rows = session.execute(
+        "SELECT user_id, menu_type, COUNT(*) as cnt "
+        "FROM raw_orders "
+        "GROUP BY user_id, menu_type"
+    )
+    
+    # ユーザーごとに集計
+    for row in rows:
+        if row.user_id not in user_counts:
+            user_counts[row.user_id] = {'washoku': 0, 'yoshoku': 0}
+        user_counts[row.user_id][row.menu_type] = row.cnt
+    
+    # 嗜好データを更新
+    for user_id, counts in user_counts.items():
+        new_pref = 'washoku' if counts['washoku'] > counts['yoshoku'] else 'yoshoku'
+        
+        # 現在の嗜好を取得
+        current_pref = session.execute(
+            "SELECT preferred_menu_type FROM user_preferences WHERE user_id = %s LIMIT 1",
+            [user_id]
+        ).one()
+        
+        if current_pref:
+            if current_pref.preferred_menu_type != new_pref:
+                # 嗜好が変更された場合のみ更新
+                session.execute(
+                    "DELETE FROM user_preferences "
+                    "WHERE preferred_menu_type = %s AND user_id = %s",
+                    [current_pref.preferred_menu_type, user_id]
+                )
+                session.execute(
+                    "INSERT INTO user_preferences (preferred_menu_type, user_id) "
+                    "VALUES (%s, %s)",
+                    [new_pref, user_id]
+                )
+        else:
+            # 新規登録
+            session.execute(
+                "INSERT INTO user_preferences (preferred_menu_type, user_id) "
+                "VALUES (%s, %s)",
+                [new_pref, user_id]
+            )
+
+
+
