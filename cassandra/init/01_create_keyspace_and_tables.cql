@@ -4,19 +4,16 @@ CREATE KEYSPACE IF NOT EXISTS analyze_poc WITH replication = {'class': 'SimpleSt
 
 USE analyze_poc;
 
--- 生ログ保存テーブル（日付ベースのパーティションキーを追加）
+-- 生ログ保存テーブル
 CREATE TABLE IF NOT EXISTS raw_orders (
-  user_id    text,　-- ユーザーIDのクラスタリングキー
+  user_id    text,
   ts         timestamp,
-  order_date date,  -- 日付のパーティションキー
+  order_date date,
   menu_type  text,
-  PRIMARY KEY (order_date, user_id)
+  PRIMARY KEY ((order_date), user_id, ts)
 );
 
--- 日付のみのインデックス（日付範囲クエリ用）
--- CREATE INDEX IF NOT EXISTS idx_raw_orders_date ON raw_orders (order_date);
-
--- ユーザー嗜好テーブル（各ユーザーの好みを保持）
+-- ユーザー嗜好テーブル
 CREATE TABLE IF NOT EXISTS user_preferences (
   preferred_menu_type text,   -- 'washoku' or 'yoshoku'
   user_id            text,

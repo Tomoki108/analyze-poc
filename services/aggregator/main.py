@@ -53,67 +53,48 @@ def update_daily_summaries(session, date):
     )
 
 def update_user_preferences(session, date):
-    # ユーザーごとの注文件数を取得
-    user_counts = {}
-    
-    # 全ユーザーの注文を取得（PRIMARY KEYでフィルタリング）
+    # 指定日付に注文したユーザーIDを取得
     user_rows = session.execute(
-        "SELECT DISTINCT user_id, order_date FROM raw_orders WHERE order_date = %s",
+        "SELECT user_id FROM raw_orders WHERE order_date = %s GROUP BY order_date, user_id",
         [date]
     )
     
-    # 各ユーザーの注文を取得して集計
+    # 各ユーザーの注文カウントを取得して嗜好を更新
     for user_row in user_rows:
         user_id = user_row.user_id
-        orders = session.execute(
-            "SELECT menu_type FROM raw_orders "
-            "WHERE user_id = %s",
-            [user_id]
-        )
         
-        washoku_count = 0
-        yoshoku_count = 0
-        for order in orders:
-            if order.menu_type == 'washoku':
-                washoku_count += 1
-            elif order.menu_type == 'yoshoku':
-                yoshoku_count += 1
-        
-        user_counts[user_id] = {
-            'washoku': washoku_count,
-            'yoshoku': yoshoku_count
-        }
-    
-    # 嗜好データを更新
-    for user_id, counts in user_counts.items():
-        new_pref = 'washoku' if counts['washoku'] > counts['yoshoku'] else 'yoshoku'
-        
-        # 現在の嗜好を取得
-        current_pref = session.execute(
-            "SELECT preferred_menu_type FROM user_preferences WHERE user_id = %s LIMIT 1",
+        # user_order_countsから現在のカウントを取得
+        count_row = session.execute(
+            "SELECT washoku_cnt, yoshoku_cnt FROM user_order_counts WHERE user_id = %s",
             [user_id]
         ).one()
         
-        if current_pref:
-            if current_pref.preferred_menu_type != new_pref:
-                # 嗜好が変更された場合のみ更新
+        if count_row:
+            washoku_cnt = count_row.washoku_cnt
+            yoshoku_cnt = count_row.yoshoku_cnt
+            
+            # 嗜好を決定
+            new_pref = 'washoku' if washoku_cnt > yoshoku_cnt else 'yoshoku'
+            
+            # 現在の嗜好を取得
+            current_pref = session.execute(
+                "SELECT preferred_menu_type FROM user_preferences WHERE user_id = %s LIMIT 1",
+                [user_id]
+            ).one()
+            
+            # 嗜好が変更されている場合のみ更新
+            if not current_pref or current_pref.preferred_menu_type != new_pref:
+                # 古い嗜好レコードを削除
                 session.execute(
-                    "DELETE FROM user_preferences "
-                    "WHERE preferred_menu_type = %s AND user_id = %s",
-                    [current_pref.preferred_menu_type, user_id]
+                    "DELETE FROM user_preferences WHERE user_id = %s",
+                    [user_id]
                 )
+                # 新しい嗜好を挿入
                 session.execute(
                     "INSERT INTO user_preferences (preferred_menu_type, user_id) "
                     "VALUES (%s, %s)",
                     [new_pref, user_id]
                 )
-        else:
-            # 新規登録
-            session.execute(
-                "INSERT INTO user_preferences (preferred_menu_type, user_id) "
-                "VALUES (%s, %s)",
-                [new_pref, user_id]
-            )
 
 # Entry point for the aggregation service
 def aggregate_orders(date_str=None):
