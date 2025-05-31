@@ -35,3 +35,7 @@ rebuild-log-consumer:
 
 log-log-consumer:
 	@docker-compose logs -f log-consumer
+
+# 指定した日付でaggregatorを実行する (例: make run-aggregator date=2025-05-30)
+run-aggregator:
+	@docker-compose exec aggregator python main.py $(date)

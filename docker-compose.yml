@@ -59,3 +59,14 @@ services:
     environment:
       KAFKA_BROKERS: kafka:9092
       CASSANDRA_HOSTS: cassandra
+
+  aggregator:
+    build:
+      context: ./services/aggregator
+    depends_on:
+      - cassandra
+    environment:
+      CASSANDRA_HOSTS: cassandra
+    # 自動起動しないようにする
+    restart: "no"
+    entrypoint: ["sleep", "infinity"]
