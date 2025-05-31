@@ -41,8 +41,7 @@ def aggregate_orders(date_str=None):
     query = """
         SELECT menu_type
         FROM raw_orders
-        WHERE ts >= ? AND ts < ?
-        ALLOW FILTERING
+        WHERE order_date = ?
     """
     # datetimeオブジェクトに変換
     start_date = datetime.strptime(date_str, '%Y-%m-%d')
@@ -57,7 +56,7 @@ def aggregate_orders(date_str=None):
     stmt = session.prepare(query)
     stmt.fetch_size = page_size
     
-    rows = session.execute(stmt, (start_date, end_date))
+    rows = session.execute(stmt, [date_str])
     for row in rows:
         if row.menu_type == 'washoku':
             washoku_count += 1
