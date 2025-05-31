@@ -86,10 +86,10 @@ func main() {
 }
 
 func processOrder(session *gocql.Session, order OrderLog) error {
-	// raw_ordersへの挿入
+	// raw_ordersへの挿入 (order_dateを追加)
 	if err := session.Query(
-		`INSERT INTO raw_orders (user_id, ts, menu_type) VALUES (?, ?, ?)`,
-		order.UserID, order.Timestamp, order.MenuType,
+		`INSERT INTO raw_orders (user_id, ts, order_date, menu_type) VALUES (?, ?, ?, ?)`,
+		order.UserID, order.Timestamp, order.Timestamp.UTC().Truncate(24*time.Hour), order.MenuType,
 	).Exec(); err != nil {
 		return fmt.Errorf("failed to insert raw order: %w", err)
 	}
