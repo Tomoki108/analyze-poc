@@ -3,6 +3,9 @@
 du-containers:
 	@docker compose down && docker compose up -d
 
+rbu-containers:
+	@docker compose down --remove-orphans && docker compose up -d --build
+
 #########
 # Kafka #
 #########
