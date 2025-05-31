@@ -27,6 +27,12 @@ rebuild-cassandra:
 
 log-cassandra:
 	@docker compose logs -f cassandra
+	
+init-cassandra:
+	@docker compose exec cassandra cqlsh -f /docker-entrypoint-initdb.d/01_create_keyspace_and_tables.cql
+
+describe-keyspaces:
+	@docker compose exec cassandra cqlsh -e "DESCRIBE KEYSPACES;"
 
 ##############
 # log-ingest #
