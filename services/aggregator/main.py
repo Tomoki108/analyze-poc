@@ -37,32 +37,38 @@ def aggregate_orders(date_str=None):
             print("Error: Invalid date format. Please use YYYY-MM-DD")
             return
     
-    # 前日の注文データを取得
+    # 指定日付の注文データを取得（ページネーションでメモリ効率化）
     query = """
-        SELECT menu_type, COUNT(*) as count
+        SELECT menu_type
         FROM raw_orders
-        WHERE ts >= %s AND ts < %s
-        GROUP BY menu_type
+        WHERE ts >= ? AND ts < ?
+        ALLOW FILTERING
     """
-    start_date = f"{date_str} 00:00:00"
-    end_date = f"{date_str} 23:59:59"
+    # datetimeオブジェクトに変換
+    start_date = datetime.strptime(date_str, '%Y-%m-%d')
+    end_date = datetime.strptime(date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
     
-    rows = session.execute(query, [start_date, end_date])
+    # アプリケーション側で集計
+    washoku_count = 0
+    yoshoku_count = 0
     
-    # 集計結果をdaily_cuisine_summaryに保存 (Cassandraでは同じPK（日付・セグメント）のレコードがある場合は上書き)
+    # ページネーションでデータ取得
+    page_size = 1000
+    stmt = session.prepare(query)
+    stmt.fetch_size = page_size
+    
+    rows = session.execute(stmt, (start_date, end_date))
+    for row in rows:
+        if row.menu_type == 'washoku':
+            washoku_count += 1
+        elif row.menu_type == 'yoshoku':
+            yoshoku_count += 1
+    
+    # 集計結果をdaily_cuisine_summaryに保存
     insert_query = """
         INSERT INTO daily_cuisine_summary (order_date, segment, cnt)
         VALUES (%s, %s, %s)
     """
-    
-    washoku_count = 0
-    yoshoku_count = 0
-    
-    for row in rows:
-        if row.menu_type == 'washoku':
-            washoku_count = row.count
-        elif row.menu_type == 'yoshoku':
-            yoshoku_count = row.count
     
     session.execute(insert_query, [date_str, 'washoku', washoku_count])
     session.execute(insert_query, [date_str, 'yoshoku', yoshoku_count])
