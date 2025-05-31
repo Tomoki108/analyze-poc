@@ -2,13 +2,12 @@
 
 ## 目的
 
-LINE ミニアプリから送信される注文ログをもとに、ユーザーセグメントを抽出・可視化する POC を週末 2 日間で構築。
+注文ログをもとに、ユーザーの嗜好、日毎の注文状況を抽出・可視化する POC を構築。
 
 ### 習得したいスタック
 
 - kafka による非同期処理
 - cassandra によるデータ管理
-- python によるバッチ集計処理
 
 ## ユースケース
 
@@ -18,7 +17,7 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
 ### 活用方法
 
 - 洋食と和食のどちらが好まれているのか、そのトレンドを把握する
-- ユーザーの嗜好に基づいたマーケティング施策の検討(嗜好に応じた適切なクーポンの配布)
+- ユーザーの嗜好に基づいたマーケティング施策の検討（ex, 嗜好に応じた適切なクーポンの配布）
 
 ## アーキテクチャ概要
 
@@ -64,17 +63,6 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
         和食派／洋食派のユーザー ID リストを表示。セレクトボックスで「和食派」「洋食派」を選択可能。
 ```
 
-### [More] スケーリングリスク
-
-- Cassandra のカウンタは分散カウンタとして実装されているものの、同一パーティション（user_id や segment）への高頻度アクセスが集中するとホットパーティションが発生し、書き込みスループット低下やタイムアウトの原因となる可能性がある
-- カウンタは最終的整合性 (eventual consistency) モデルを採用しており、短時間での読み取り時に一時的に不整合な値が返る場合がある。
-
-本番環境で高負荷を想定する場合は、以下のようなストリーム処理エンジンの導入を検討。
-
-- Kafka Streams / ksqlDB
-- Apache Flink など
-- カウンタパーティションを分散化するパーティションキー設計の見直し
-
 ## データモデル (Cassandra)
 
 [schema def](/cassandra/init/01_create_keyspace_and_tables.cql)
@@ -90,24 +78,12 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
   # Cassandra スキーマ作成：
   make init-cassandra
   ```
-- [個別タブ] log-ingest 起動ログ確認
-  ```bash
-  make log-log-ingest
-  ```
-- [個別タブ] log-consumer 起動ログ確認
-
-  ```bash
-  make log-log-consumer
-  ```
-
-- ログ投入テスト：
+- ログストリーム再現
   ```bash
   ./log-stream-test.sh
   ```
-- Kafka に書き込まれたことを確認：
+- 集計クエリ実行
   ```bash
-  docker-compose exec kafka \
-    kafka-console-consumer --bootstrap-server kafka:9092 \
-      --topic order-logs --from-beginning --max-messages 10
+  make run-aggregator date=2025-05-31
   ```
-- Web UI への反映: Summary Service 経由で取得し、グラフ表示を確認
+- Web サイトで確認
