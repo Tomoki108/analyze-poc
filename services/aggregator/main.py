@@ -24,36 +24,65 @@ def get_cassandra_session():
     return cluster.connect(KEYSPACE)
 
 def update_daily_summaries(session, date):
-    # 日付指定でraw_ordersから集計
+    # 指定日付の全注文を取得（PRIMARY KEYでフィルタリング）
     rows = session.execute(
-        "SELECT order_date, menu_type, COUNT(*) as cnt "
-        "FROM raw_orders WHERE order_date = %s "
-        "GROUP BY order_date, menu_type",
+        "SELECT menu_type FROM raw_orders "
+        "WHERE user_id = '*' AND order_date = %s",
         [date]
     )
     
-    # daily_order_summariesに挿入/更新
+    # アプリケーション側で集計
+    washoku_count = 0
+    yoshoku_count = 0
     for row in rows:
-        session.execute(
-            "INSERT INTO daily_order_summaries (order_date, menu_type, cnt) "
-            "VALUES (%s, %s, %s)",
-            [row.order_date, row.menu_type, row.cnt]
-        )
+        if row.menu_type == 'washoku':
+            washoku_count += 1
+        elif row.menu_type == 'yoshoku':
+            yoshoku_count += 1
+    
+    # daily_order_summariesに挿入/更新
+    session.execute(
+        "INSERT INTO daily_order_summaries (order_date, menu_type, cnt) "
+        "VALUES (%s, 'washoku', %s)",
+        [date, washoku_count]
+    )
+    session.execute(
+        "INSERT INTO daily_order_summaries (order_date, menu_type, cnt) "
+        "VALUES (%s, 'yoshoku', %s)",
+        [date, yoshoku_count]
+    )
 
-def update_user_preferences(session):
+def update_user_preferences(session, date):
     # ユーザーごとの注文件数を取得
     user_counts = {}
-    rows = session.execute(
-        "SELECT user_id, menu_type, COUNT(*) as cnt "
-        "FROM raw_orders "
-        "GROUP BY user_id, menu_type"
+    
+    # 全ユーザーの注文を取得（PRIMARY KEYでフィルタリング）
+    user_rows = session.execute(
+        "SELECT DISTINCT user_id, order_date FROM raw_orders WHERE order_date = %s",
+        [date]
     )
     
-    # ユーザーごとに集計
-    for row in rows:
-        if row.user_id not in user_counts:
-            user_counts[row.user_id] = {'washoku': 0, 'yoshoku': 0}
-        user_counts[row.user_id][row.menu_type] = row.cnt
+    # 各ユーザーの注文を取得して集計
+    for user_row in user_rows:
+        user_id = user_row.user_id
+        orders = session.execute(
+            "SELECT menu_type FROM raw_orders "
+            "WHERE user_id = %s",
+            [user_id]
+        )
+        
+        washoku_count = 0
+        yoshoku_count = 0
+        for order in orders:
+            if order.menu_type == 'washoku':
+                washoku_count += 1
+            elif order.menu_type == 'yoshoku':
+                yoshoku_count += 1
+        
+        user_counts[user_id] = {
+            'washoku': washoku_count,
+            'yoshoku': yoshoku_count
+        }
     
     # 嗜好データを更新
     for user_id, counts in user_counts.items():
@@ -106,7 +135,7 @@ def aggregate_orders(date_str=None):
     update_daily_summaries(session, date)
     
     # ユーザー嗜好更新
-    update_user_preferences(session)
+    update_user_preferences(session, date)
     
     print(f"Aggregated data for {date_str}")
 
