@@ -10,35 +10,6 @@ CASSANDRA_USER = os.getenv('CASSANDRA_USER', 'cassandra')
 CASSANDRA_PASS = os.getenv('CASSANDRA_PASS', 'cassandra')
 KEYSPACE = 'analyze_poc'
 
-if __name__ == '__main__':
-    import sys
-    date_arg = sys.argv[1] if len(sys.argv) > 1 else None
-    aggregate_orders(date_arg)
-
-# Entry point for the aggregation service
-def aggregate_orders(date_str=None):
-    session = get_cassandra_session()
-    
-    # 日付が指定されていない場合は前日の日付を使う
-    if date_str is None:
-        yesterday = datetime.utcnow() - timedelta(days=1)
-        date_str = yesterday.strftime('%Y-%m-%d')
-    else:
-        # 日付フォーマットを検証
-        try:
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            print("Error: Invalid date format. Please use YYYY-MM-DD")
-            return
-    
-    # 日次サマリ更新
-    update_daily_summaries(session, date)
-    
-    # ユーザー嗜好更新
-    update_user_preferences(session)
-    
-    print(f"Aggregated data for {date_str}")
-
 # Cassandraセッションを取得するヘルパー関数
 def get_cassandra_session():
     auth_provider = PlainTextAuthProvider(
@@ -52,7 +23,6 @@ def get_cassandra_session():
     )
     return cluster.connect(KEYSPACE)
 
-# 日次サマリを更新する関数
 def update_daily_summaries(session, date):
     # 日付指定でraw_ordersから集計
     rows = session.execute(
@@ -70,7 +40,6 @@ def update_daily_summaries(session, date):
             [row.order_date, row.menu_type, row.cnt]
         )
 
-# ユーザー嗜好を更新する関数
 def update_user_preferences(session):
     # ユーザーごとの注文件数を取得
     user_counts = {}
@@ -117,5 +86,31 @@ def update_user_preferences(session):
                 [new_pref, user_id]
             )
 
+# Entry point for the aggregation service
+def aggregate_orders(date_str=None):
+    session = get_cassandra_session()
+    
+    # 日付が指定されていない場合は前日の日付を使う
+    if date_str is None:
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        date_str = yesterday.strftime('%Y-%m-%d')
+    else:
+        # 日付フォーマットを検証
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            print("Error: Invalid date format. Please use YYYY-MM-DD")
+            return
+    
+    # 日次サマリ更新
+    update_daily_summaries(session, date)
+    
+    # ユーザー嗜好更新
+    update_user_preferences(session)
+    
+    print(f"Aggregated data for {date_str}")
 
-
+if __name__ == '__main__':
+    import sys
+    date_arg = sys.argv[1] if len(sys.argv) > 1 else None
+    aggregate_orders(date_arg)
