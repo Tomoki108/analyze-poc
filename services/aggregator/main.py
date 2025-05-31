@@ -56,7 +56,7 @@ def aggregate_orders(date_str=None):
     stmt = session.prepare(query)
     stmt.fetch_size = page_size
     
-    rows = session.execute(stmt, [date_str])
+    rows = session.execute(stmt, [start_date.date()])
     for row in rows:
         if row.menu_type == 'washoku':
             washoku_count += 1

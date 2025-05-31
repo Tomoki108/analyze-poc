@@ -49,13 +49,15 @@ log-log-consumer:
 rebuild-aggregator:
 	@docker-compose up -d --build aggregator
 
-# 指定した日付でaggregatorを実行する (例: make run-aggregator date=2025-05-30)
+# 指定した日付でaggregatorを実行する (例: make run-aggregator date=2025-05-31)
 run-aggregator:
 	@docker-compose exec aggregator python main.py $(date)
 
 ########
 # test #
 ########
+
+# date=2025-05-31のログが大量に出力される
 test:
 	@./log-stream-test.sh
 
