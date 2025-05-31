@@ -30,10 +30,11 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
     ↓ Kafka “order-logs” トピックへプロデュース
 
 [services/log-consumer (Go)]
-    ↓ Cassandra raw_orders に書き込み、user_cuisine_counts、cuisine_segment_counts をインクリメント
+    ↓ Cassandra raw_orders に書き込み、user_order_counts をインクリメント
 
 [services/aggregator]
-    ↓ 前日のraw_orders を集計、daily_cuisine_summary に書き込み
+    ↓ 前日のraw_orders を集計、daily_order_summaries に書き込み
+    ↓ 前日のraw_orders を集計、注文があったユーザーのuser_preferences を更新
 
 [services/summary-api (Go, Echo)]
     • GET /api/daily_order_summaries?year_month=2025-05
@@ -97,35 +98,16 @@ CREATE TABLE daily_order_summaries (
   order_date  date,
   menu_type     text,   -- 'washoku' or 'yoshoku'
   cnt       int,
-  PRIMARY KEY (order_date, segment)
+  PRIMARY KEY (order_date, menu_type)
 );
 
 -- ユーザー嗜好テーブル
-CREATE TABLE user_cuisine_counts (
+CREATE TABLE user_preferences (
   prefered_menu_type     text,   -- 'washoku' or 'yoshoku'
   user_id     text,
   PRIMARY KEY (prefered_menu_type, user_id)
 );
 ```
-
-## 開発手順
-
-- Cassandra のスキーマを作成し、テーブルを準備
-- Cassandra、Kafka、Zookeeper、Log-Ingest Service のコンテナを定義
-- **Log-Ingest Service （Go, Echo）** を実装
-  - ログの送信を受け付け、Kafka トピックへログを送信（プロデュース）する
-- **Log-Consumer Service （Go, Echo）** を実装
-  - Kafka トピックからログを消費し、Cassandra の raw_orders に書き込み、user_order_counts をインクリメントする
-- **Log-Aggregator Service を実装（Python）**
-  - 前日のログを集計し、daily_order_summaries テーブルを更新する。
-  - 前日のログを集計し、注文があったユーザーの user_cuisine_counts テーブルを更新する。
-- **Summary-API Service （Go, Echo）** を実装
-  - 日毎の和食／洋食注文数を取得する API を実装
-  - 和食派／洋食派のユーザーの数、ID リストを取得する API を実装
-- **Summary-Web Service (Vue.js or 静的 HTML + Chart.js)** を実装
-  - 日毎の和食注文数／洋食注文数を円グラフで表示
-  - 和食派／洋食派のユーザーの数、ID リストを表示
-- 実際のログストリームを再現するテストスクリプトを作成
 
 ## 動作確認
 
