@@ -77,37 +77,7 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
 
 ## データモデル (Cassandra)
 
-```cql
--- 生ログ保存テーブル
-CREATE TABLE raw_orders (
-  user_id   text,
-  ts        timestamp,
-  menu_type text,
-  PRIMARY KEY (user_id, ts)
-) WITH CLUSTERING ORDER BY (ts DESC);
-
--- ユーザー別注文カウンタ
-CREATE TABLE user_order_counts (
-  user_id      text PRIMARY KEY,
-  menu_type  string, -- 'washoku' or 'yoshoku'
-  cnt  counter
-);
-
--- 日次サマリテーブル（各日付ごとの和食／洋食注文件数を集計）
-CREATE TABLE daily_order_summaries (
-  order_date  date,
-  menu_type     text,   -- 'washoku' or 'yoshoku'
-  cnt       int,
-  PRIMARY KEY (order_date, menu_type)
-);
-
--- ユーザー嗜好テーブル
-CREATE TABLE user_preferences (
-  prefered_menu_type     text,   -- 'washoku' or 'yoshoku'
-  user_id     text,
-  PRIMARY KEY (prefered_menu_type, user_id)
-);
-```
+[schema def](/cassandra/init/01_create_keyspace_and_tables.cql)
 
 ## 動作確認
 
