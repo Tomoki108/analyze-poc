@@ -36,6 +36,19 @@ log-cassandra:
 init-cassandra:
 	@docker compose exec cassandra cqlsh -f /docker-entrypoint-initdb.d/01_create_keyspace_and_tables.cql
 
+clean-cassandra:
+	@echo "Cleaning Cassandra database..."
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.raw_orders;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.user_cuisine_counts;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.cuisine_segment_counts;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.daily_cuisine_summary;"
+	@echo "Database cleaned successfully"
+
+drop-cassandra:
+	@echo "Dropping Cassandra keyspace..."
+	@docker compose exec cassandra cqlsh -e "DROP KEYSPACE IF EXISTS analyze_poc;"
+	@echo "Keyspace dropped successfully"
+
 describe-keyspaces:
 	@docker compose exec cassandra cqlsh -e "DESCRIBE KEYSPACES;"
 
@@ -85,15 +98,3 @@ log-summary-api:
 test:
 	@./log-stream-test.sh
 
-clean-db:
-	@echo "Cleaning Cassandra database..."
-	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.raw_orders;"
-	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.user_cuisine_counts;"
-	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.cuisine_segment_counts;"
-	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.daily_cuisine_summary;"
-	@echo "Database cleaned successfully"
-
-drop-db:
-	@echo "Dropping Cassandra keyspace..."
-	@docker compose exec cassandra cqlsh -e "DROP KEYSPACE IF EXISTS analyze_poc;"
-	@echo "Keyspace dropped successfully"
