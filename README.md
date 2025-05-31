@@ -81,23 +81,28 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
 
 ## 動作確認
 
-- コンテナ起動 (Zookeeper/Kafka/Cassandra/Log-Ingest):
+- 初期化
   ```bash
-  docker-compose up -d zookeeper kafka cassandra log-ingest
-  ```
-- Kafka トピック作成：
-  ```bash
+  # コンテナ起動
+  make du-containers
+  # Kafka トピック作成
   make create-topics
+  # Cassandra スキーマ作成：
+  make init-cassandra
   ```
-- Log-Ingest 起動ログ確認：
+- [個別タブ] log-ingest 起動ログ確認
   ```bash
-  docker-compose logs -f log-ingest
+  make log-log-ingest
   ```
+- [個別タブ] log-consumer 起動ログ確認
+
+  ```bash
+  make log-log-consumer
+  ```
+
 - ログ投入テスト：
   ```bash
-  curl -X POST http://localhost:8080/api/log \
-    -H 'Content-Type: application/json' \
-    -d '{"user_id":"u1","timestamp":"2025-05-30T12:00:00Z","menu_type":"washoku"}'
+  ./log-stream-test.sh
   ```
 - Kafka に書き込まれたことを確認：
   ```bash
