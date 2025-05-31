@@ -1,66 +1,69 @@
 .PHONY: create-topics describe-topics
 
+du-containers:
+	@docker compose down && docker compose up -d
+
 #########
 # Kafka #
 #########
 create-topics:
-	@docker-compose exec kafka \
+	@docker compose exec kafka \
 		kafka-topics --create --bootstrap-server kafka:9092 \
 		--replication-factor 1 --partitions 1 --topic order-logs || echo "order-logs already exists"
 
 describe-topics:
-	@docker-compose exec kafka \
+	@docker compose exec kafka \
 		kafka-topics --describe --bootstrap-server kafka:9092 --topic order-logs
 
 list-topics:
-	@docker-compose exec kafka \
+	@docker compose exec kafka \
 		kafka-topics --list --bootstrap-server kafka:9092
 
 #############
 # Cassandra #
 #############
 rebuild-cassandra:
-	@docker-compose up -d --build cassandra
+	@docker compose up -d --build cassandra
 
 log-cassandra:
-	@docker-compose logs -f cassandra
+	@docker compose logs -f cassandra
 
 ##############
 # log-ingest #
 ##############
 rebuild-log-ingest:
-	@docker-compose up -d --build log-ingest
+	@docker compose up -d --build log-ingest
 
 log-log-ingest:
-	@docker-compose logs -f log-ingest
+	@docker compose logs -f log-ingest
 
 ################
 # log-consumer #
 ################
 rebuild-log-consumer:
-	@docker-compose up -d --build log-consumer
+	@docker compose up -d --build log-consumer
 
 log-log-consumer:
-	@docker-compose logs -f log-consumer
+	@docker compose logs -f log-consumer
 
 ###############
 # aggregator #
 ###############
 rebuild-aggregator:
-	@docker-compose up -d --build aggregator
+	@docker compose up -d --build aggregator
 
 # 指定した日付でaggregatorを実行する (例: make run-aggregator date=2025-05-31)
 run-aggregator:
-	@docker-compose exec aggregator python main.py $(date)
+	@docker compose exec aggregator python main.py $(date)
 
 ###########
 # web-summary #
 ###########
 rebuild-summary-api:
-	@docker-compose up -d --build summary-api
+	@docker compose up -d --build summary-api
 
 log-summary-api:
-	@docker-compose logs -f summary-api
+	@docker compose logs -f summary-api
 
 
 ########
@@ -73,8 +76,8 @@ test:
 
 clean-db:
 	@echo "Cleaning Cassandra database..."
-	@docker-compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.raw_orders;"
-	@docker-compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.user_cuisine_counts;"
-	@docker-compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.cuisine_segment_counts;"
-	@docker-compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.daily_cuisine_summary;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.raw_orders;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.user_cuisine_counts;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.cuisine_segment_counts;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.daily_cuisine_summary;"
 	@echo "Database cleaned successfully"
