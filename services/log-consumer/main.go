@@ -94,33 +94,28 @@ func processOrder(session *gocql.Session, order OrderLog) error {
 		return fmt.Errorf("failed to insert raw order: %w", err)
 	}
 
-	// カウンタ更新
-	var counterColumn string
-	switch order.MenuType {
-	case "washoku":
-		counterColumn = "washoku_cnt"
-	case "yoshoku":
-		counterColumn = "yoshoku_cnt"
-	default:
-		return fmt.Errorf("invalid menu type: %s", order.MenuType)
+	// user_order_counts更新
+	maxRetries := 3
+	var lastErr error
+	var applied bool
+
+	for i := 0; i < maxRetries; i++ {
+		lastErr = session.Query(
+			`UPDATE user_order_counts SET cnt = cnt + 1 WHERE user_id = ? IF EXISTS`,
+			order.UserID,
+		).Scan(&applied)
+		if lastErr == nil && applied {
+			return nil
+		}
+
+		lastErr = session.Query(
+			`INSERT INTO user_order_counts (user_id, menu_type, cnt) VALUES (?, ?, 1) IF NOT EXISTS`,
+			order.UserID, order.MenuType,
+		).Scan(&applied)
+		if lastErr == nil && applied {
+			return nil
+		}
 	}
 
-	// user_cuisine_counts更新
-	if err := session.Query(
-		fmt.Sprintf(`UPDATE user_cuisine_counts SET %s = %s + 1 WHERE user_id = ?`, counterColumn, counterColumn),
-		order.UserID,
-	).Exec(); err != nil {
-		return fmt.Errorf("failed to update user cuisine counts: %w", err)
-	}
-
-	// cuisine_segment_counts更新
-	segment := order.MenuType // "washoku" or "yoshoku"
-	if err := session.Query(
-		`UPDATE cuisine_segment_counts SET cnt = cnt + 1 WHERE segment = ?`,
-		segment,
-	).Exec(); err != nil {
-		return fmt.Errorf("failed to update segment counts: %w", err)
-	}
-
-	return nil
+	return fmt.Errorf("failed to update or create user order counts after %d retries: %w", maxRetries, lastErr)
 }

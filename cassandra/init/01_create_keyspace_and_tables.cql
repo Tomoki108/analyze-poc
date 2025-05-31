@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS raw_orders (
 CREATE INDEX IF NOT EXISTS idx_raw_orders_date ON raw_orders (order_date);
 
 -- ユーザー嗜好テーブル（各ユーザーの好みを保持）
-CREATE TABLE IF NOT EXISTS user_cuisine_counts (
+CREATE TABLE IF NOT EXISTS user_preferences (
   prefered_menu_type text,   -- 'washoku' or 'yoshoku'
   user_id            text,
   PRIMARY KEY (prefered_menu_type, user_id)
