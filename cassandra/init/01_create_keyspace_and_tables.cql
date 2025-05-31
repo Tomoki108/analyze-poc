@@ -6,15 +6,15 @@ USE analyze_poc;
 
 -- 生ログ保存テーブル（日付ベースのパーティションキーを追加）
 CREATE TABLE IF NOT EXISTS raw_orders (
-  user_id    text,
+  user_id    text,　-- ユーザーIDのクラスタリングキー
   ts         timestamp,
-  order_date date,  -- 日付ベースのパーティションキー
+  order_date date,  -- 日付のパーティションキー
   menu_type  text,
-  PRIMARY KEY ((user_id, order_date), ts)
-) WITH CLUSTERING ORDER BY (ts DESC);
+  PRIMARY KEY (order_date, user_id)
+);
 
 -- 日付のみのインデックス（日付範囲クエリ用）
-CREATE INDEX IF NOT EXISTS idx_raw_orders_date ON raw_orders (order_date);
+-- CREATE INDEX IF NOT EXISTS idx_raw_orders_date ON raw_orders (order_date);
 
 -- ユーザー嗜好テーブル（各ユーザーの好みを保持）
 CREATE TABLE IF NOT EXISTS user_preferences (
