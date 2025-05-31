@@ -63,38 +63,33 @@ def update_user_preferences(session, date):
     for user_row in user_rows:
         user_id = user_row.user_id
         
-        # user_order_countsから現在のカウントを取得
+        # user_order_countsから現在のカウントを取得 (存在しない場合は0で初期化)
         count_row = session.execute(
             "SELECT washoku_cnt, yoshoku_cnt FROM user_order_counts WHERE user_id = %s",
             [user_id]
         ).one()
         
+        # カウンタの初期化 (count_rowがNoneまたは各カウンタがNoneの場合に対応)
+        washoku_cnt = 0
+        yoshoku_cnt = 0
         if count_row:
-            washoku_cnt = count_row.washoku_cnt
-            yoshoku_cnt = count_row.yoshoku_cnt
-            
-            # 嗜好を決定
-            new_pref = 'washoku' if washoku_cnt > yoshoku_cnt else 'yoshoku'
-            
-            # 現在の嗜好を取得
-            current_pref = session.execute(
-                "SELECT preferred_menu_type FROM user_preferences WHERE user_id = %s LIMIT 1",
-                [user_id]
-            ).one()
-            
-            # 嗜好が変更されている場合のみ更新
-            if not current_pref or current_pref.preferred_menu_type != new_pref:
-                # 古い嗜好レコードを削除
-                session.execute(
-                    "DELETE FROM user_preferences WHERE user_id = %s",
-                    [user_id]
-                )
-                # 新しい嗜好を挿入
-                session.execute(
-                    "INSERT INTO user_preferences (preferred_menu_type, user_id) "
-                    "VALUES (%s, %s)",
-                    [new_pref, user_id]
-                )
+            washoku_cnt = int(count_row.washoku_cnt) if count_row.washoku_cnt is not None else 0
+            yoshoku_cnt = int(count_row.yoshoku_cnt) if count_row.yoshoku_cnt is not None else 0
+
+        # 嗜好を決定
+        new_pref = 'washoku' if washoku_cnt > yoshoku_cnt else 'yoshoku'
+        
+        # 反対の嗜好レコードを削除
+        session.execute(
+            "DELETE FROM user_preferences WHERE preferred_menu_type = %s AND user_id = %s",
+            ['yoshoku' if new_pref == 'washoku' else 'washoku', user_id]
+        )
+        # 新しい嗜好を挿入
+        session.execute(
+            "INSERT INTO user_preferences (preferred_menu_type, user_id) "
+            "VALUES (%s, %s)",
+            [new_pref, user_id]
+        )
 
 # Entry point for the aggregation service
 def aggregate_orders(date_str=None):
