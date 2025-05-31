@@ -94,7 +94,7 @@ func processOrder(session *gocql.Session, order OrderLog) error {
 		return fmt.Errorf("failed to insert raw order: %w", err)
 	}
 
-	// カウンタ更新
+	// user_order_counts更新
 	var counterColumn string
 	switch order.MenuType {
 	case "washoku":
@@ -102,25 +102,14 @@ func processOrder(session *gocql.Session, order OrderLog) error {
 	case "yoshoku":
 		counterColumn = "yoshoku_cnt"
 	default:
-		return fmt.Errorf("invalid menu type: %s", order.MenuType)
+		return fmt.Errorf("invalid menu_type: %s", order.MenuType)
 	}
 
-	// user_cuisine_counts更新
 	if err := session.Query(
-		fmt.Sprintf(`UPDATE user_cuisine_counts SET %s = %s + 1 WHERE user_id = ?`, counterColumn, counterColumn),
+		fmt.Sprintf(`UPDATE user_order_counts SET %s = %s + 1 WHERE user_id = ?`, counterColumn, counterColumn),
 		order.UserID,
 	).Exec(); err != nil {
-		return fmt.Errorf("failed to update user cuisine counts: %w", err)
+		return fmt.Errorf("failed to update user order counts: %w", err)
 	}
-
-	// cuisine_segment_counts更新
-	segment := order.MenuType // "washoku" or "yoshoku"
-	if err := session.Query(
-		`UPDATE cuisine_segment_counts SET cnt = cnt + 1 WHERE segment = ?`,
-		segment,
-	).Exec(); err != nil {
-		return fmt.Errorf("failed to update segment counts: %w", err)
-	}
-
 	return nil
 }

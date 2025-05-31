@@ -1,7 +1,12 @@
 .PHONY: create-topics describe-topics
 
+# 全コンテナを削除、再作成して起動
 du-containers:
-	@docker compose down && docker compose up -d
+	@docker compose down --remove-orphans && docker compose up -d
+
+# 全コンテナを削除、イメージを再ビルド、コンテナを再作成して起動
+dbu-containers:
+	@docker compose down --remove-orphans && docker compose up -d --build
 
 #########
 # Kafka #
@@ -27,6 +32,27 @@ rebuild-cassandra:
 
 log-cassandra:
 	@docker compose logs -f cassandra
+
+# 初期化スクリプトの実行制御が難しかったので、手動コマンドを用意
+# https://medium.com/@driptaroop.das/execute-startup-scripts-in-cassandra-docker-13b6563d4f2f
+init-cassandra:
+	@docker compose exec cassandra cqlsh -f /docker-entrypoint-initdb.d/01_create_keyspace_and_tables.cql
+
+clean-cassandra:
+	@echo "Cleaning Cassandra database..."
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.raw_orders;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.user_cuisine_counts;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.cuisine_segment_counts;"
+	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.daily_cuisine_summary;"
+	@echo "Database cleaned successfully"
+
+drop-cassandra:
+	@echo "Dropping Cassandra keyspace..."
+	@docker compose exec cassandra cqlsh -e "DROP KEYSPACE IF EXISTS analyze_poc;"
+	@echo "Keyspace dropped successfully"
+
+describe-keyspaces:
+	@docker compose exec cassandra cqlsh -e "DESCRIBE KEYSPACES;"
 
 ##############
 # log-ingest #
@@ -74,10 +100,3 @@ log-summary-api:
 test:
 	@./log-stream-test.sh
 
-clean-db:
-	@echo "Cleaning Cassandra database..."
-	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.raw_orders;"
-	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.user_cuisine_counts;"
-	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.cuisine_segment_counts;"
-	@docker compose exec cassandra cqlsh -e "TRUNCATE analyze_poc.daily_cuisine_summary;"
-	@echo "Database cleaned successfully"

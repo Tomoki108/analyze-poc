@@ -9,17 +9,21 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type CuisineSegment struct {
-	Segment string   `json:"segment"`
-	Count   int64    `json:"count"`
-	Users   []string `json:"users"`
+type UserSegment struct {
+	MenuType string   `json:"menu_type"`
+	Count    int64    `json:"count"`
+	UserIDs  []string `json:"user_ids"`
 }
 
-type DailySummary struct {
-	Date       string `json:"date"`
-	Segment    string `json:"segment"`
-	TotalCount int    `json:"total_count"`
+type DailyOrderSummary struct {
+	Date   string `json:"date"`
+	Counts []struct {
+		MenuType string `json:"menu_type"`
+		Count    int    `json:"count"`
+	} `json:"counts"`
 }
+
+var session *gocql.Session
 
 func main() {
 	// Initialize Echo
@@ -34,67 +38,102 @@ func main() {
 	cluster.Timeout = 10 * time.Second
 
 	// Create Cassandra session
-	session, err := cluster.CreateSession()
+	sess, err := cluster.CreateSession()
 	if err != nil {
 		e.Logger.Fatal("Failed to connect to Cassandra:", err)
 	}
-	defer session.Close()
+	defer sess.Close()
+	session = sess
 
 	// API routes
-	e.GET("/api/segments", func(c echo.Context) error {
-		var segments []CuisineSegment
-
-		// Get segment counts
-		iter := session.Query(`SELECT segment, cnt FROM cuisine_segment_counts`).Iter()
-		var segment string
-		var count int64
-		for iter.Scan(&segment, &count) {
-			// Get users for each segment from user_cuisine_counts
-			var users []string
-			userIter := session.Query(`SELECT user_id FROM user_cuisine_counts WHERE ` + segment + `_cnt > 0`).Iter()
-			var userID string
-			for userIter.Scan(&userID) {
-				users = append(users, userID)
-			}
-			if err := userIter.Close(); err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			}
-
-			segments = append(segments, CuisineSegment{
-				Segment: segment,
-				Count:   count,
-				Users:   users,
-			})
-		}
-		if err := iter.Close(); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		return c.JSON(http.StatusOK, map[string]interface{}{"cuisines": segments})
-	})
-
-	e.GET("/api/summaries", func(c echo.Context) error {
-		var summaries []DailySummary
-
-		// Get daily summaries
-		iter := session.Query(`SELECT order_date, segment, cnt FROM daily_cuisine_summary`).Iter()
-		var date time.Time
-		var segment string
-		var count int
-		for iter.Scan(&date, &segment, &count) {
-			summaries = append(summaries, DailySummary{
-				Date:       date.Format("2006-01-02"),
-				Segment:    segment,
-				TotalCount: count,
-			})
-		}
-		if err := iter.Close(); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		return c.JSON(http.StatusOK, map[string]interface{}{"summaries": summaries})
-	})
+	e.GET("/api/user_segments", getUserSegments)
+	e.GET("/api/daily_order_summaries", getDailyOrderSummaries)
 
 	// Start server
 	e.Logger.Fatal(e.Start(":8081"))
+}
+
+// curl http://localhost:8081/api/user_segments
+func getUserSegments(c echo.Context) error {
+	var segments []UserSegment
+
+	// Get washoku segment
+	washokuIter := session.Query(`SELECT user_id FROM user_preferences WHERE preferred_menu_type = 'washoku'`).Iter()
+	var washokuUsers []string
+	var userID string
+	for washokuIter.Scan(&userID) {
+		washokuUsers = append(washokuUsers, userID)
+	}
+	if err := washokuIter.Close(); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	// Get yoshoku segment
+	yoshokuIter := session.Query(`SELECT user_id FROM user_preferences WHERE preferred_menu_type = 'yoshoku'`).Iter()
+	var yoshokuUsers []string
+	for yoshokuIter.Scan(&userID) {
+		yoshokuUsers = append(yoshokuUsers, userID)
+	}
+	if err := yoshokuIter.Close(); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	segments = append(segments,
+		UserSegment{
+			MenuType: "washoku",
+			Count:    int64(len(washokuUsers)),
+			UserIDs:  washokuUsers,
+		},
+		UserSegment{
+			MenuType: "yoshoku",
+			Count:    int64(len(yoshokuUsers)),
+			UserIDs:  yoshokuUsers,
+		},
+	)
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"segments": segments})
+}
+
+// curl "http://localhost:8081/api/daily_order_summaries?year-month=2025-05-31"
+func getDailyOrderSummaries(c echo.Context) error {
+	yearMonth := c.QueryParam("year_month")
+	var summaries []DailyOrderSummary
+
+	// Get daily summaries filtered by year_month if provided
+	query := `SELECT order_date, menu_type, cnt FROM daily_order_summaries`
+	if yearMonth != "" {
+		query += ` WHERE order_date >= ? AND order_date < ?`
+	}
+	iter := session.Query(query).Iter()
+	var date time.Time
+	var menuType string
+	var count int
+	for iter.Scan(&date, &menuType, &count) {
+		// Find or create summary for this date
+		var summary *DailyOrderSummary
+		for i := range summaries {
+			if summaries[i].Date == date.Format("2006-01-02") {
+				summary = &summaries[i]
+				break
+			}
+		}
+		if summary == nil {
+			summaries = append(summaries, DailyOrderSummary{
+				Date: date.Format("2006-01-02"),
+			})
+			summary = &summaries[len(summaries)-1]
+		}
+		summary.Counts = append(summary.Counts, struct {
+			MenuType string `json:"menu_type"`
+			Count    int    `json:"count"`
+		}{
+			MenuType: menuType,
+			Count:    count,
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"summaries": summaries})
 }

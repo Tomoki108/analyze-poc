@@ -26,17 +26,6 @@ services:
       interval: 5s
       timeout: 10s
       retries: 10
-    # 自動トピック作成用の補助サービス
-  create_topics:
-    image: confluentinc/cp-kafka:latest
-    depends_on:
-      - kafka
-    entrypoint: >
-      bash -c "cub kafka-ready -b kafka:9092 1 20 && \
-               kafka-topics --create --topic visit-logs --bootstrap-server kafka:9092 \
-                 --replication-factor 1 --partitions 1 || echo 'topic exists'"
-    # 自動起動しないようにする
-    restart: "no"
 
   cassandra:
     image: cassandra:4.0
