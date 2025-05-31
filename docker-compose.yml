@@ -49,3 +49,13 @@ services:
       KAFKA_BROKERS: kafka:9092
     ports:
       - "8080:8080"
+
+  log-consumer:
+    build:
+      context: ./services/log-consumer
+    depends_on:
+      - kafka
+      - cassandra
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      CASSANDRA_HOSTS: cassandra

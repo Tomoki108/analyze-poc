@@ -11,6 +11,10 @@ describe-topics:
 	@docker-compose exec kafka \
 		kafka-topics --describe --bootstrap-server kafka:9092 --topic order-logs
 
+list-topics:
+	@docker-compose exec kafka \
+		kafka-topics --list --bootstrap-server kafka:9092
+
 rebuild-log-ingest:
 	@docker-compose up -d --build log-ingest
 
@@ -25,3 +29,9 @@ log-ingest:
 
 log-log-ingest:
 	@docker-compose logs -f log-ingest
+
+rebuild-log-consumer:
+	@docker-compose up -d --build log-consumer
+
+log-log-consumer:
+	@docker-compose logs -f log-consumer
