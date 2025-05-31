@@ -95,27 +95,21 @@ func processOrder(session *gocql.Session, order OrderLog) error {
 	}
 
 	// user_order_counts更新
-	maxRetries := 3
-	var lastErr error
-	var applied bool
-
-	for i := 0; i < maxRetries; i++ {
-		lastErr = session.Query(
-			`UPDATE user_order_counts SET cnt = cnt + 1 WHERE user_id = ? IF EXISTS`,
-			order.UserID,
-		).Scan(&applied)
-		if lastErr == nil && applied {
-			return nil
-		}
-
-		lastErr = session.Query(
-			`INSERT INTO user_order_counts (user_id, menu_type, cnt) VALUES (?, ?, 1) IF NOT EXISTS`,
-			order.UserID, order.MenuType,
-		).Scan(&applied)
-		if lastErr == nil && applied {
-			return nil
-		}
+	var counterColumn string
+	switch order.MenuType {
+	case "washoku":
+		counterColumn = "washoku_cnt"
+	case "yoshoku":
+		counterColumn = "yoshoku_cnt"
+	default:
+		return fmt.Errorf("invalid menu_type: %s", order.MenuType)
 	}
 
-	return fmt.Errorf("failed to update or create user order counts after %d retries: %w", maxRetries, lastErr)
+	if err := session.Query(
+		fmt.Sprintf(`UPDATE user_order_counts SET %s = %s + 1 WHERE user_id = ?`, counterColumn, counterColumn),
+		order.UserID,
+	).Exec(); err != nil {
+		return fmt.Errorf("failed to update user order counts: %w", err)
+	}
+	return nil
 }

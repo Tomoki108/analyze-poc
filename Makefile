@@ -27,7 +27,9 @@ rebuild-cassandra:
 
 log-cassandra:
 	@docker compose logs -f cassandra
-	
+
+# 初期化スクリプトの実行制御が難しかったので、手動コマンドを用意
+# https://medium.com/@driptaroop.das/execute-startup-scripts-in-cassandra-docker-13b6563d4f2f
 init-cassandra:
 	@docker compose exec cassandra cqlsh -f /docker-entrypoint-initdb.d/01_create_keyspace_and_tables.cql
 
