@@ -24,20 +24,20 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
 ## アーキテクチャ概要
 
 ```text
-[ミニアプリ（ログ送信テストスクリプト）]
-    ↓ POST /api/log { user_id, timestamp, menu_type }
+[log-stream-test.sh]
+    ↓ loop: POST /api/log { user_id, timestamp, menu_type }
 
-[Log-Ingest Service]
+[services/log-ingest (Go, Echo)]
     ↓ Kafka “order-logs” トピックへプロデュース
 
-[Log-Consumer Service]
+[services/log-consumer (Go)]
     ↓ Cassandra raw_orders に書き込み、user_cuisine_counts、cuisine_segment_counts をインクリメント
 
-[バッチ集計 (CronJob)]
+[services/aggregator]
     ↓ 前日のraw_orders を集計
-    • daily_cuisine_summary に書き込み
+      daily_cuisine_summary に書き込み
 
-[Summary Service]
+[services/summary-api (Go, Echo)]
     • GET /api/segments
     {
         cuisines: [
@@ -52,7 +52,7 @@ LINE ミニアプリから送信される注文ログをもとに、ユーザー
             { date: "2025-05-30", segment: "yoshoku", total_count: 321 }
         ]
     }
-[Web UI (Vue.js or 静的HTML + Chart.js)]
+[services/summary-web (Vue.js 3, Chart.js)]
     • /cuisine.html：和食／洋食注文円グラフ（トータル/日毎）。各セグメントに該当するユーザー ID リストも表示
 ```
 
