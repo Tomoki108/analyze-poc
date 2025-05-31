@@ -38,11 +38,12 @@ func main() {
 	cluster.Timeout = 10 * time.Second
 
 	// Create Cassandra session
-	session, err := cluster.CreateSession()
+	sess, err := cluster.CreateSession()
 	if err != nil {
 		e.Logger.Fatal("Failed to connect to Cassandra:", err)
 	}
-	defer session.Close()
+	defer sess.Close()
+	session = sess
 
 	// API routes
 	e.GET("/api/user_segments", getUserSegments)
@@ -52,11 +53,12 @@ func main() {
 	e.Logger.Fatal(e.Start(":8081"))
 }
 
+// curl http://localhost:8081/api/user_segments
 func getUserSegments(c echo.Context) error {
 	var segments []UserSegment
 
 	// Get washoku segment
-	washokuIter := session.Query(`SELECT user_id FROM user_preferences WHERE preference = 'washoku'`).Iter()
+	washokuIter := session.Query(`SELECT user_id FROM user_preferences WHERE preferred_menu_type = 'washoku'`).Iter()
 	var washokuUsers []string
 	var userID string
 	for washokuIter.Scan(&userID) {
@@ -67,7 +69,7 @@ func getUserSegments(c echo.Context) error {
 	}
 
 	// Get yoshoku segment
-	yoshokuIter := session.Query(`SELECT user_id FROM user_preferences WHERE preference = 'yoshoku'`).Iter()
+	yoshokuIter := session.Query(`SELECT user_id FROM user_preferences WHERE preferred_menu_type = 'yoshoku'`).Iter()
 	var yoshokuUsers []string
 	for yoshokuIter.Scan(&userID) {
 		yoshokuUsers = append(yoshokuUsers, userID)
@@ -92,12 +94,13 @@ func getUserSegments(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"segments": segments})
 }
 
+// curl "http://localhost:8081/api/daily_order_summaries?year-month=2025-05-31"
 func getDailyOrderSummaries(c echo.Context) error {
 	yearMonth := c.QueryParam("year_month")
 	var summaries []DailyOrderSummary
 
 	// Get daily summaries filtered by year_month if provided
-	query := `SELECT order_date, menu_type, count FROM daily_order_summaries`
+	query := `SELECT order_date, menu_type, cnt FROM daily_order_summaries`
 	if yearMonth != "" {
 		query += ` WHERE order_date >= ? AND order_date < ?`
 	}
