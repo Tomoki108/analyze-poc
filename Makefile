@@ -53,6 +53,16 @@ rebuild-aggregator:
 run-aggregator:
 	@docker-compose exec aggregator python main.py $(date)
 
+###########
+# web-summary #
+###########
+rebuild-summary-api:
+	@docker-compose up -d --build summary-api
+
+log-summary-api:
+	@docker-compose logs -f summary-api
+
+
 ########
 # test #
 ########
