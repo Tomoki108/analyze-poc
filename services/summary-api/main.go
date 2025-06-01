@@ -99,12 +99,18 @@ func getDailyOrderSummaries(c echo.Context) error {
 	date := c.QueryParam("date")
 	var summaries []DailyOrderSummary
 
-	// Get daily summaries filtered by year_month if provided
+	// Get daily summary filtered by date if provided
 	query := `SELECT order_date, menu_type, cnt FROM daily_order_summaries`
 	if date != "" {
-		query += ` WHERE order_date >= ? AND order_date < ?`
+		query += ` WHERE order_date = ?`
 	}
-	iter := session.Query(query).Iter()
+	var iter *gocql.Iter
+	if date != "" {
+		iter = session.Query(query, date).Iter()
+	} else {
+		iter = session.Query(query).Iter()
+	}
+
 	var orderDate time.Time
 	var menuType string
 	var count int
