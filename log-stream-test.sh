@@ -2,6 +2,20 @@
 
 # Log stream test script for log-ingest and log-consumer
 
+# Check for date argument
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 YYYY-MM-DD"
+  exit 1
+fi
+
+# Validate date format
+if ! [[ $1 =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  echo "Error: Date must be in YYYY-MM-DD format"
+  exit 1
+fi
+
+DATE=$1
+
 API_URL="http://localhost:8080/api/log"
 INTERVAL=0.3  # seconds between requests
 
@@ -19,8 +33,8 @@ while true; do
     menu_type="yoshoku"
   fi
 
-  # Use fixed date 2025-05-31 with current time
-  timestamp="2025-05-31T$(date -u +"%H:%M:%SZ")"
+  # Use provided date with current time
+  timestamp="${DATE}T$(date -u +"%H:%M:%SZ")"
 
   # Create JSON payload
   json_payload=$(jq -n \

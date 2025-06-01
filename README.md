@@ -6,8 +6,8 @@
 
 ### 習得したいスタック
 
-- kafka による非同期処理
-- cassandra によるデータ管理
+- Kafka による非同期処理
+- Cassandra によるデータ管理
 
 ## ユースケース
 
@@ -71,8 +71,8 @@
 
 - 初期化
   ```bash
-  # コンテナ起動
-  make du-containers
+  # コンテナビルド、起動
+  make dbu-containers
   # Kafka トピック作成
   make create-topics
   # Cassandra スキーマ作成：
@@ -80,10 +80,10 @@
   ```
 - ログストリーム再現
   ```bash
-  ./log-stream-test.sh
+  ./log-stream-test.sh 2025-05-31
   ```
 - 集計クエリ実行
   ```bash
   make run-aggregator date=2025-05-31
   ```
-- Web サイトで確認
+- レポート UI で確認：http://localhost:8081/
