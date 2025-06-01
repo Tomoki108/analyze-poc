@@ -31,7 +31,7 @@
 [services/log-consumer (Go)]
     ↓ Cassandra raw_orders に書き込み、user_order_counts をインクリメント
 
-[services/aggregator]
+[services/aggregator（Python）]
     ↓ 前日のraw_orders を集計、daily_order_summaries に書き込み
     ↓ 前日のraw_orders を集計、注文があったユーザーのuser_preferences を更新
 
@@ -58,7 +58,7 @@
     }
 [services/summary-web (Vue.js 3, Chart.js)]
     • /daily_order_summaries.html
-        日毎の和食／洋食注文数を円グラフで表示。セレクトボックスで年月を選択可能。
+        日毎の和食／洋食注文数を円グラフで表示。カレンダーで年月日を選択可能。
     • /user_segments.html
         和食派／洋食派のユーザー ID リストを表示。セレクトボックスで「和食派」「洋食派」を選択可能。
 ```
