@@ -57,9 +57,9 @@
         ]
     }
 [services/summary-web (Vue.js 3, Chart.js)]
-    • /daily_order_summaries.html
+    • /daily_order_summaries
         日毎の和食／洋食注文数を円グラフで表示。カレンダーで年月日を選択可能。
-    • /user_segments.html
+    • /user_segments
         和食派／洋食派のユーザー ID リストを表示。セレクトボックスで「和食派」「洋食派」を選択可能。
 ```
 
