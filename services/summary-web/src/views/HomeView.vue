@@ -2,6 +2,10 @@
     <div class="home">
         <h1>Summary Web</h1>
         <p>This is the home page of the summary web application.</p>
+        <div class="menu">
+            <!-- <RouterLink to="/about">About</RouterLink> -->
+            <RouterLink to="/daily_order_summaries">日別注文サマリー</RouterLink>
+        </div>
     </div>
 </template>
 
@@ -14,5 +18,20 @@ export default {
 <style scoped>
 .home {
     padding: 20px;
+}
+
+.menu {
+    margin-top: 20px;
+    display: flex;
+    gap: 15px;
+}
+
+.menu a {
+    color: #42b983;
+    text-decoration: none;
+}
+
+.menu a:hover {
+    text-decoration: underline;
 }
 </style>
