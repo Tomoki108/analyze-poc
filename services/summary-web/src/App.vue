@@ -7,6 +7,7 @@
         </router-link>
         <div class="nav-links">
           <router-link to="/daily_order_summaries">日次注文サマリー</router-link>
+          <router-link to="/user_segments">ユーザーセグメント</router-link>
         </div>
       </div>
     </nav>

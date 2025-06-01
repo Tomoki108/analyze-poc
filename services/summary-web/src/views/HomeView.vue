@@ -3,16 +3,18 @@
         <h1>ディニー</h1>
         <p>注文ログから、日次の注文状況やユーザーセグメントを分析</p>
         <div class="menu">
-            <!-- <RouterLink to="/about">About</RouterLink> -->
-            <RouterLink to="/daily_order_summaries">日次注文サマリー</RouterLink>
+            <RouterLink to="/daily_order_summaries">日次注文サマリー</RouterLink>&nbsp;|&nbsp;
+            <RouterLink to="/user_segments">ユーザーセグメント</RouterLink>
         </div>
     </div>
 </template>
 
-<script>
-export default {
+<script lang="ts">
+import { defineComponent } from 'vue'
+
+export default defineComponent({
     name: 'HomeView'
-}
+})
 </script>
 
 <style scoped>
@@ -22,8 +24,9 @@ export default {
 
 .menu {
     margin-top: 20px;
-    display: flex;
-    gap: 15px;
+    /* display: flex;
+    gap: 15px; */
+    width: 100%;
 }
 
 .menu a {

@@ -2,13 +2,6 @@
     <div class="user-segments">
         <h2>ユーザーセグメント</h2>
 
-        <div class="segment-selector">
-            <select v-model="selectedSegment" @change="fetchData">
-                <option value="washoku">和食派</option>
-                <option value="yoshoku">洋食派</option>
-            </select>
-        </div>
-
         <div v-if="loading" class="loading">読み込み中...</div>
 
         <div v-if="error" class="error">{{ error }}</div>
@@ -18,7 +11,13 @@
         </div>
 
         <div v-if="selectedUserIds.length > 0" class="user-list">
-            <h3>ユーザーIDリスト ({{ selectedSegment === 'washoku' ? '和食派' : '洋食派' }})</h3>
+            <h3>ユーザーIDリスト</h3>
+            <div class="segment-selector">
+                <select v-model="selectedSegment" @change="updateUserList">
+                    <option value="washoku">和食派</option>
+                    <option value="yoshoku">洋食派</option>
+                </select>
+            </div>
             <ul>
                 <li v-for="userId in selectedUserIds" :key="userId">{{ userId }}</li>
             </ul>
@@ -27,7 +26,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue'
+import { defineComponent, ref, onMounted, watch } from 'vue'
 import { Pie } from 'vue-chartjs'
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js'
 
@@ -78,7 +77,18 @@ export default defineComponent({
                 }
 
                 segments.value = data.segments
-                updateChartAndUserList()
+
+                // 初期チャートデータ設定
+                chartData.value = {
+                    labels: segments.value.map(s => s.menu_type === 'washoku' ? '和食派' : '洋食派'),
+                    datasets: [{
+                        data: segments.value.map(s => s.count),
+                        backgroundColor: ['#FF6384', '#36A2EB'],
+                        hoverBackgroundColor: ['#FF6384', '#36A2EB']
+                    }]
+                }
+
+                updateUserList()
             } catch (err) {
                 error.value = err instanceof Error ? err.message : 'データの取得に失敗しました'
                 console.error(err)
@@ -87,23 +97,15 @@ export default defineComponent({
             }
         }
 
-        const updateChartAndUserList = () => {
+        // ユーザーリストのみ更新
+        const updateUserList = () => {
             if (!segments.value) return
 
-            // チャートデータ更新
-            chartData.value = {
-                labels: segments.value.map(s => s.menu_type === 'washoku' ? '和食派' : '洋食派'),
-                datasets: [{
-                    data: segments.value.map(s => s.count),
-                    backgroundColor: ['#FF6384', '#36A2EB'],
-                    hoverBackgroundColor: ['#FF6384', '#36A2EB']
-                }]
-            }
-
-            // 選択されたセグメントのユーザーIDリスト更新
             const segment = segments.value.find(s => s.menu_type === selectedSegment.value)
             if (segment) {
                 selectedUserIds.value = segment.user_ids
+            } else {
+                selectedUserIds.value = []
             }
         }
 
@@ -111,6 +113,16 @@ export default defineComponent({
             responsive: true,
             maintainAspectRatio: false
         }
+
+        // コンポーネントマウント時にデータ取得
+        onMounted(() => {
+            fetchData()
+        })
+
+        // selectedSegmentの変更を監視
+        watch(selectedSegment, () => {
+            updateUserList()
+        })
 
         return {
             selectedSegment,
@@ -133,12 +145,12 @@ export default defineComponent({
 }
 
 .segment-selector {
-    margin: 20px auto;
+    margin: 10px 0 20px;
     display: flex;
     gap: 10px;
     align-items: center;
     justify-content: center;
-    width: fit-content;
+    width: 100%;
 }
 
 select {
