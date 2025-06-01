@@ -83,8 +83,8 @@ export default defineComponent({
                     labels: segments.value.map(s => s.menu_type === 'washoku' ? '和食派' : '洋食派'),
                     datasets: [{
                         data: segments.value.map(s => s.count),
-                        backgroundColor: ['#FF6384', '#36A2EB'],
-                        hoverBackgroundColor: ['#FF6384', '#36A2EB']
+                        backgroundColor: ['#36A2EB', '#FF6384'],
+                        hoverBackgroundColor: ['#36A2EB', '#FF6384']
                     }]
                 }
 

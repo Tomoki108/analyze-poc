@@ -17,22 +17,36 @@
     </div>
 </template>
 
-<script>
-import { ref } from 'vue'
+<script lang="ts">
+import { defineComponent, ref } from 'vue'
 import { Pie } from 'vue-chartjs'
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js'
 import DatePicker from 'vue3-datepicker'
 
 Chart.register(ArcElement, Tooltip, Legend)
 
-export default {
+interface MenuCount {
+    menu_type: string
+    count: number
+}
+
+interface ChartData {
+    labels: string[]
+    datasets: {
+        data: number[]
+        backgroundColor: string[]
+        hoverBackgroundColor: string[]
+    }[]
+}
+
+export default defineComponent({
     name: 'DailyOrderSummariesView',
     components: { Pie, DatePicker },
     setup() {
-        const selectedDate = ref(new Date())
-        const chartData = ref(null)
-        const loading = ref(false)
-        const error = ref(null)
+        const selectedDate = ref<Date>(new Date())
+        const chartData = ref<ChartData | null>(null)
+        const loading = ref<boolean>(false)
+        const error = ref<string | null>(null)
         const apiHost = import.meta.env.VITE_API_HOST || 'http://localhost:8081'
 
         const fetchData = async () => {
@@ -68,7 +82,7 @@ export default {
                     }]
                 }
             } catch (err) {
-                error.value = err.message || 'データの取得に失敗しました'
+                error.value = err instanceof Error ? err.message : 'データの取得に失敗しました'
                 chartData.value = null
                 console.error(err)
             } finally {
@@ -87,10 +101,10 @@ export default {
             loading,
             error,
             fetchData,
-            chartOptions
+            chartOptions,
         }
     }
-}
+})
 </script>
 
 <style scoped>
