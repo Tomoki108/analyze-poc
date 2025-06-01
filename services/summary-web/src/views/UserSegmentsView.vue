@@ -26,6 +26,8 @@
 </template>
 
 <script lang="ts">
+///<reference types="vite/client" />
+
 import { defineComponent, ref, onMounted, watch } from 'vue'
 import { Pie } from 'vue-chartjs'
 import { Chart, ArcElement, Tooltip, Legend } from 'chart.js'
