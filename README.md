@@ -93,5 +93,4 @@ sequenceDiagram
 
 <!-- user_segments.pngを表示 -->
 
-<img src="./images/user_segments.png" width="400">
-<img src="./images/daily_order_summary.png" width="360">
+<img src="./images/user_segments.png" width="400"> <img src="./images/daily_order_summary.png" width="360">
