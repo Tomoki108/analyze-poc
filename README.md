@@ -21,55 +21,15 @@
 
 ## サービス構成
 
-- **log-ingest (Go)**: 注文ログを受信し、Kafka にプロデュースする API サービス
-- **log-consumer (Go)**: Kafka から注文ログを消費し、Cassandra に永続化するサービス
-- **aggregator (Python)**: 前日の注文データを集計し、サマリーデータを生成するバッチ処理サービス
-- **summary-api (Go)**: 集計済みデータをクライアントに提供する API サービス
+- **log-ingest (Go, Echo)**: 注文ログを受信し、Kafka にプロデュースする API
+- **log-consumer (Go)**: Kafka から注文ログを消費し、Cassandra に永続化するワーカー
+- **aggregator (Python)**: 前日の注文データを集計し、サマリーデータを生成するバッチ処理
+- **summary-api (Go, Echo)**: 集計済みデータをクライアントに提供する API
 - **summary-web (Vue.js)**: 集計データを可視化する Web フロントエンド
 
-## アーキテクチャ概要
+## シーケンス図
 
-```text
-[log-stream-test.sh]
-    ↓ loop: POST /api/log { user_id, timestamp, menu_type }
-
-[services/log-ingest (Go, Echo)]
-    ↓ Kafka “order-logs” トピックへプロデュース
-
-[services/log-consumer (Go)]
-    ↓ Cassandra raw_orders に書き込み、user_order_counts をインクリメント
-
-[services/aggregator（Python）]
-    ↓ 前日のraw_orders を集計、daily_order_summaries に書き込み
-    ↓ 前日のraw_orders を集計、注文があったユーザーのuser_preferences を更新
-
-[services/summary-api (Go, Echo)]
-    • GET /api/daily_order_summaries?date=2025-05-31
-    {
-        summaries: [
-            {
-                date: "2025-05-30",
-                counts: [
-                    { menu_type: "washoku", count: 456 },
-                    { menu_type: "yoshoku", count: 321 }
-                ]
-            },
-            ...
-        ]
-    }
-    • GET /api/user_segments
-    {
-        segments: [
-            { menu_type: "washoku", count: 123, user_ids: [u1, u2, ...] },
-            { menu_type: "yoshoku", count: 87, user_ids: [u3, u4, ...] }
-        ]
-    }
-[services/summary-web (Vue.js 3, Chart.js)]
-    • /daily_order_summaries
-        日毎の和食／洋食注文数を円グラフで表示。カレンダーで年月日を選択可能。
-    • /user_segments
-        和食派／洋食派のユーザー ID リストを表示。セレクトボックスで「和食派」「洋食派」を選択可能。
-```
+### ログ受信から集計までの流れ
 
 ```mermaid
 sequenceDiagram
@@ -89,6 +49,8 @@ sequenceDiagram
     aggregator->>Cassandra: Write to daily_order_summaries
     aggregator->>Cassandra: Update user_preferences
 ```
+
+### 集計データの取得
 
 ```mermaid
 sequenceDiagram
@@ -128,3 +90,8 @@ sequenceDiagram
   make run-aggregator date=2025-05-31
   ```
 - レポート UI で確認：http://localhost:8081/
+
+<!-- user_segments.pngを表示 -->
+
+<img src="./images/user_segments.png" width="400">
+<img src="./images/daily_order_summary.png" width="360">
