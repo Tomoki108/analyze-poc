@@ -6,6 +6,12 @@
             <RouterLink to="/daily_order_summaries">日次注文サマリー</RouterLink>&nbsp;|&nbsp;
             <RouterLink to="/user_segments">ユーザーセグメント</RouterLink>
         </div>
+
+        <br>
+        <hr>
+        <p>以下のような注文ログが随時大量に追加されると仮定し、それを分析しサマライズするPOC。</p>
+        <p><code>{ "user_id": "u1", "ts": "2025-05-31T00:00:00Z", "menu_type": "washoku" }</code></p>
+        <a href="https://github.com/Tomoki108/analyze-poc" target="_blank">GitHub Repository</a>
     </div>
 </template>
 
