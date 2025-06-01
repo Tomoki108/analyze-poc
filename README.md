@@ -6,61 +6,64 @@
 
 ### 習得したいスタック
 
-- kafka による非同期処理
-- cassandra によるデータ管理
+- Kafka による非同期処理
+- Cassandra によるデータ管理
 
 ## ユースケース
 
-- 和食の注文数、洋食の注文数について日毎のデータを閲覧できる。（前日のログを集計）
-- 注文ログをもとに、各ユーザーの嗜好（和食派/洋食派）を判定。それぞれの数、該当するユーザー ID をリスト表示できる。（前日のログを元に毎晩差分更新）
+- 和食の注文数、洋食の注文数について日次のデータを閲覧できる。（前日の注文ログを集計）
+- 注文ログをもとに、各ユーザーの嗜好（和食派/洋食派）を判定。それぞれの数、該当するユーザー ID をリスト表示できる。（前日の注文ログを元に毎晩差分更新）
 
 ### 活用方法
 
 - 洋食と和食のどちらが好まれているのか、そのトレンドを把握する
 - ユーザーの嗜好に基づいたマーケティング施策の検討（ex, 嗜好に応じた適切なクーポンの配布）
 
-## アーキテクチャ概要
+## サービス構成
 
-```text
-[log-stream-test.sh]
-    ↓ loop: POST /api/log { user_id, timestamp, menu_type }
+- **log-ingest (Go, Echo)**: 注文ログを受信し、Kafka にプロデュースする API
+- **log-consumer (Go)**: Kafka から注文ログを消費し、Cassandra に永続化するワーカー
+- **aggregator (Python)**: 前日の注文データを集計し、サマリーデータを生成するバッチ処理
+- **summary-api (Go, Echo)**: 集計済みデータをクライアントに提供する API
+- **summary-web (Vue.js)**: 集計データを可視化する Web フロントエンド
 
-[services/log-ingest (Go, Echo)]
-    ↓ Kafka “order-logs” トピックへプロデュース
+## シーケンス図
 
-[services/log-consumer (Go)]
-    ↓ Cassandra raw_orders に書き込み、user_order_counts をインクリメント
+### ログ受信から集計までの流れ
 
-[services/aggregator]
-    ↓ 前日のraw_orders を集計、daily_order_summaries に書き込み
-    ↓ 前日のraw_orders を集計、注文があったユーザーのuser_preferences を更新
+```mermaid
+sequenceDiagram
+    participant client
+    participant log-ingest
+    participant Kafka
+    participant log-consumer
+    participant Cassandra
+    participant aggregator
 
-[services/summary-api (Go, Echo)]
-    • GET /api/daily_order_summaries?year_month=2025-05
-    {
-        summaries: [
-            {
-                date: "2025-05-30",
-                counts: [
-                    { menu_type: "washoku", count: 456 },
-                    { menu_type: "yoshoku", count: 321 }
-                ]
-            },
-            ...
-        ]
-    }
-    • GET /api/user_segments
-    {
-        segments: [
-            { menu_type: "washoku", count: 123, user_ids: [u1, u2, ...] },
-            { menu_type: "yoshoku", count: 87, user_ids: [u3, u4, ...] }
-        ]
-    }
-[services/summary-web (Vue.js 3, Chart.js)]
-    • /daily_order_summaries.html
-        日毎の和食／洋食注文数を円グラフで表示。セレクトボックスで年月を選択可能。
-    • /user_segments.html
-        和食派／洋食派のユーザー ID リストを表示。セレクトボックスで「和食派」「洋食派」を選択可能。
+    client->>log-ingest: POST /api/log {user_id, timestamp, menu_type}
+    log-ingest->>Kafka: Produce to "order-logs" topic
+    log-consumer->>Kafka: Consume messages
+    log-consumer->>Cassandra: Write to raw_orders
+    log-consumer->>Cassandra: Increment user_order_counts
+    aggregator->>Cassandra: Read raw_orders (previous day)
+    aggregator->>Cassandra: Write to daily_order_summaries
+    aggregator->>Cassandra: Update user_preferences
+```
+
+### 集計データの取得
+
+```mermaid
+sequenceDiagram
+    participant summary-web
+    participant summary-api
+    participant Cassandra
+
+    summary-web->>summary-api: GET /api/daily_order_summaries?date=2025-05-31 <br> GET /api/user_segments
+    summary-api->>Cassandra: Query daily_order_summaries <br> Query user_preferences
+    Cassandra-->>summary-api: Return data
+    summary-api-->>summary-web: Return JSON response
+
+
 ```
 
 ## データモデル (Cassandra)
@@ -71,8 +74,8 @@
 
 - 初期化
   ```bash
-  # コンテナ起動
-  make du-containers
+  # コンテナビルド、起動
+  make dbu-containers
   # Kafka トピック作成
   make create-topics
   # Cassandra スキーマ作成：
@@ -80,10 +83,15 @@
   ```
 - ログストリーム再現
   ```bash
-  ./log-stream-test.sh
+  ./log-stream-test.sh 2025-05-31
   ```
 - 集計クエリ実行
   ```bash
   make run-aggregator date=2025-05-31
   ```
-- Web サイトで確認
+- レポート UI で確認：http://localhost:8081/
+
+<!-- user_segments.pngを表示 -->
+
+<img src="./images/user_segments.png" width="400">
+<img src="./images/daily_order_summary.png" width="360">

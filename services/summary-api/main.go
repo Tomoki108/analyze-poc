@@ -94,32 +94,38 @@ func getUserSegments(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"segments": segments})
 }
 
-// curl "http://localhost:8081/api/daily_order_summaries?year-month=2025-05-31"
+// curl "http://localhost:8081/api/daily_order_summaries?date=2025-05-31"
 func getDailyOrderSummaries(c echo.Context) error {
-	yearMonth := c.QueryParam("year_month")
+	date := c.QueryParam("date")
 	var summaries []DailyOrderSummary
 
-	// Get daily summaries filtered by year_month if provided
+	// Get daily summary filtered by date if provided
 	query := `SELECT order_date, menu_type, cnt FROM daily_order_summaries`
-	if yearMonth != "" {
-		query += ` WHERE order_date >= ? AND order_date < ?`
+	if date != "" {
+		query += ` WHERE order_date = ?`
 	}
-	iter := session.Query(query).Iter()
-	var date time.Time
+	var iter *gocql.Iter
+	if date != "" {
+		iter = session.Query(query, date).Iter()
+	} else {
+		iter = session.Query(query).Iter()
+	}
+
+	var orderDate time.Time
 	var menuType string
 	var count int
-	for iter.Scan(&date, &menuType, &count) {
+	for iter.Scan(&orderDate, &menuType, &count) {
 		// Find or create summary for this date
 		var summary *DailyOrderSummary
 		for i := range summaries {
-			if summaries[i].Date == date.Format("2006-01-02") {
+			if summaries[i].Date == orderDate.Format("2006-01-02") {
 				summary = &summaries[i]
 				break
 			}
 		}
 		if summary == nil {
 			summaries = append(summaries, DailyOrderSummary{
-				Date: date.Format("2006-01-02"),
+				Date: orderDate.Format("2006-01-02"),
 			})
 			summary = &summaries[len(summaries)-1]
 		}

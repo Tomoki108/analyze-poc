@@ -12,7 +12,7 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-type VisitLog struct {
+type OrderLog struct {
 	UserID    string    `json:"user_id"`
 	Timestamp time.Time `json:"timestamp"`
 	MenuType  string    `json:"menu_type"`
@@ -34,7 +34,7 @@ func main() {
 	e := echo.New()
 	// 注文ログ用エンドポイント
 	e.POST("/api/log", func(c echo.Context) error {
-		var v VisitLog
+		var v OrderLog
 		if err := c.Bind(&v); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
