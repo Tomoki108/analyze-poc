@@ -1,10 +1,10 @@
 <template>
     <div class="home">
-        <h1>Summary Web</h1>
-        <p>This is the home page of the summary web application.</p>
+        <h1>ディニー</h1>
+        <p>注文ログから、日次の注文状況やユーザーセグメントを分析</p>
         <div class="menu">
             <!-- <RouterLink to="/about">About</RouterLink> -->
-            <RouterLink to="/daily_order_summaries">日別注文サマリー</RouterLink>
+            <RouterLink to="/daily_order_summaries">日次注文サマリー</RouterLink>
         </div>
     </div>
 </template>

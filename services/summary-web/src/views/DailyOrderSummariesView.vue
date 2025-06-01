@@ -1,6 +1,6 @@
 <template>
     <div class="daily-order-summaries">
-        <h1>日別注文サマリー</h1>
+        <h2>日次注文サマリー</h2>
 
         <div class="date-picker">
             <DatePicker v-model="selectedDate" format="YYYY-MM-DD" />
