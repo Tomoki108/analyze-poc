@@ -101,10 +101,12 @@ export default {
 }
 
 .date-picker {
-    margin: 20px 0;
+    margin: 20px auto;
     display: flex;
     gap: 10px;
     align-items: center;
+    justify-content: center;
+    width: fit-content;
 }
 
 button {

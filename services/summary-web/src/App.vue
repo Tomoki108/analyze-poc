@@ -33,6 +33,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  width: 70%;
 }
 
 .main-nav {
