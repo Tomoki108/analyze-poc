@@ -12,7 +12,7 @@
         <div v-if="error" class="error">{{ error }}</div>
 
         <div v-if="chartData" class="chart-container">
-            <Pie :chartData="chartData" :options="chartOptions" />
+            <Pie :data="chartData" :options="chartOptions" />
         </div>
     </div>
 </template>
@@ -40,7 +40,11 @@ export default {
                 loading.value = true
                 error.value = null
 
-                const date = selectedDate.value.toISOString().slice(0, 10)
+                // タイムゾーン補正なしで日付を取得
+                const year = selectedDate.value.getFullYear()
+                const month = String(selectedDate.value.getMonth() + 1).padStart(2, '0')
+                const day = String(selectedDate.value.getDate()).padStart(2, '0')
+                const date = `${year}-${month}-${day}`
                 const response = await fetch(`/api/daily_order_summaries?date=${date}`)
 
                 if (!response.ok) {
@@ -48,7 +52,13 @@ export default {
                 }
 
                 const data = await response.json()
-                const summary = data.summaries[0] // 最初の日付のデータを使用
+                if (!data.summaries || data.summaries.length === 0) {
+                    throw new Error('該当するデータが見つかりませんでした')
+                }
+                const summary = data.summaries[0]
+                if (!summary.counts || summary.counts.length === 0) {
+                    throw new Error('注文データが見つかりませんでした')
+                }
                 chartData.value = {
                     labels: summary.counts.map(item => item.menu_type === 'washoku' ? '和食' : '洋食'),
                     datasets: [{
@@ -58,7 +68,8 @@ export default {
                     }]
                 }
             } catch (err) {
-                error.value = 'データの取得に失敗しました'
+                error.value = err.message || 'データの取得に失敗しました'
+                chartData.value = null
                 console.error(err)
             } finally {
                 loading.value = false
