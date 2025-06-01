@@ -36,7 +36,7 @@
     ↓ 前日のraw_orders を集計、注文があったユーザーのuser_preferences を更新
 
 [services/summary-api (Go, Echo)]
-    • GET /api/daily_order_summaries?year_month=2025-05
+    • GET /api/daily_order_summaries?date=2025-05-31
     {
         summaries: [
             {
