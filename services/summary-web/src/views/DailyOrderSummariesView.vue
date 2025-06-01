@@ -3,7 +3,7 @@
         <h1>日別注文サマリー</h1>
 
         <div class="date-picker">
-            <DatePicker v-model="selectedDate" type="month" format="YYYY-MM" />
+            <DatePicker v-model="selectedDate" format="YYYY-MM-DD" />
             <button @click="fetchData">データ取得</button>
         </div>
 
@@ -33,15 +33,15 @@ export default {
         const chartData = ref(null)
         const loading = ref(false)
         const error = ref(null)
-        const apiHost = import.meta.env.VITE_API_HOST || 'http://localhost:8080'
+        const apiHost = import.meta.env.VITE_API_HOST || 'http://localhost:8081'
 
         const fetchData = async () => {
             try {
                 loading.value = true
                 error.value = null
 
-                const yearMonth = selectedDate.value.toISOString().slice(0, 7)
-                const response = await fetch(`${apiHost}/api/daily_order_summaries?year_month=${yearMonth}`)
+                const date = selectedDate.value.toISOString().slice(0, 10)
+                const response = await fetch(`/api/daily_order_summaries?date=${date}`)
 
                 if (!response.ok) {
                     throw new Error('Network response was not ok')
